@@ -1,41 +1,32 @@
 package main
 
 import (
-	"log"
+	"flag"
+	"fmt"
 	"os"
-
-	"github.com/mitchellh/cli"
-	"github.com/sansaid/cake/cmds"
 )
 
-// NOTE: https://pkg.go.dev/github.com/mitchellh/cli#CLI
-// NOTE: https://github.com/mitchellh/cli
-
-type cliFactory map[string]cli.CommandFactory
-
 func main() {
-	cake := cli.NewCLI("cake", "0.1.0")
+	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
+	startImageFlag := startCmd.String("image", "", "[Required] The target image for the watched container, including its register. Example: sansaid/debotbot:latest")
 
-	cake.Args = os.Args[1:]
-	config, _ := cmds.ParseArgs(cake.Args)
+	stopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
+	stopImageFlag := stopCmd.String("image", "", "[Required] The target image to stop watching")
 
-	cake.Commands = cliFactory{
-		"start": func() (cli.Command, error) {
-			return cmds.StartCommand{
-				Config: config,
-			}, nil
-		},
-		"stop": func() (cli.Command, error) {
-			return cmds.StopCommand{
-				Config: config,
-			}, nil
-		},
+	if len(os.Args) < 2 {
+		fmt.Errorf("Expected at least one of the following subcommands: start, stop")
+		os.Exit(1)
 	}
 
-	exitStatus, err := cake.Run()
-	if err != nil {
-		log.Println(err)
+	switch os.Args[1] {
+	case "start":
+		startCmd.Parse(os.Args[2:])
+		cake := cmds.NewConfig(*image)
+		cake.Run()
+	case "stop":
+		stopCmd.Parse(os.Args[2:])
+	default:
+		fmt.Errorf("Expected at least one of the following subcommands: start, stop")
+		os.Exit(1)
 	}
-
-	os.Exit(exitStatus)
 }
