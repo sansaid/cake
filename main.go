@@ -4,7 +4,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/sansaid/cake/cmds"
+	"github.com/sansaid/cake/lib"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	stopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
 
 	if len(os.Args) < 2 {
-		cmds.ErrExit(cmds.ErrUnrecognisedSubcommands)
+		lib.ErrExit(lib.ErrUnrecognisedSubcommands)
 	}
 
 	var cake *Cake
@@ -22,7 +22,7 @@ func main() {
 	switch os.Args[1] {
 	case "start":
 		startCmd.Parse(os.Args[2:])
-		cake = NewCake(*startImage)
+		cake = lib.NewCake(*startImage)
 		cake.Run()
 	case "stop":
 		stopCmd.Parse(os.Args[2:])
@@ -30,9 +30,9 @@ func main() {
 		if cake != nil {
 			cake.Stop()
 		} else {
-			cmds.ErrExit(cmds.ErrCakeNotFound)
+			lib.ErrExit(lib.ErrCakeNotFound)
 		}
 	default:
-		cmds.ErrExit(cmds.ErrUnrecognisedSubcommands)
+		lib.ErrExit(lib.ErrUnrecognisedSubcommands)
 	}
 }
