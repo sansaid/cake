@@ -9,20 +9,20 @@ import (
 
 func main() {
 	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
-	startImage := startCmd.String("image", "", "[Required] The target image for the watched container, including its register. Example: sansaid/debotbot:latest")
+	startImage := startCmd.String("image", "", "[Required] The target image for the watched container Example: sansaid/debotbot")
 
 	stopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
 
 	if len(os.Args) < 2 {
-		lib.ErrExit(lib.ErrUnrecognisedSubcommands)
+		lib.ExitErr(lib.ErrUnrecognisedSubcommands, nil)
 	}
 
-	var cake *Cake
+	var cake *lib.Cake
 
 	switch os.Args[1] {
 	case "start":
 		startCmd.Parse(os.Args[2:])
-		cake = lib.NewCake(*startImage)
+		cake = lib.NewCake(*startImage, "", "")
 		cake.Run()
 	case "stop":
 		stopCmd.Parse(os.Args[2:])
@@ -30,9 +30,9 @@ func main() {
 		if cake != nil {
 			cake.Stop()
 		} else {
-			lib.ErrExit(lib.ErrCakeNotFound)
+			lib.ExitErr(lib.ErrCakeNotFound, nil)
 		}
 	default:
-		lib.ErrExit(lib.ErrUnrecognisedSubcommands)
+		lib.ExitErr(lib.ErrUnrecognisedSubcommands, nil)
 	}
 }

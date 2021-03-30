@@ -1,44 +1,58 @@
 package lib
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 type ErrorCode struct {
 	description string
 	code        int
 }
 
-func ExitErr(err ErrorCode) {
-	fmt.Println(err.description)
-	os.Exit(err.code)
+func ExitErr(errCode ErrorCode, err error) {
+	fmt.Println(errCode.description)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	os.Exit(errCode.code)
 }
 
 // ErrNoRegistry - an error used to specify if no registry is defined when running cake
-ErrNoRegistry := ErrorCode{
+var ErrNoRegistry ErrorCode = ErrorCode{
 	description: "Registry must be specified, either through -registry flag, CAKE_REGISTRY" +
-	" environment variable, or through a .cake file.",
+		" environment variable, or through a .cake file.",
 	code: 1,
 }
 
 // ErrUnrecognisedSubcommands - an error to specify subcommands are uncregonised
-ErrUnrecognisedSubcommands := ErrorCode{
+var ErrUnrecognisedSubcommands ErrorCode = ErrorCode{
 	description: "Expected at least one of the following subcommands: start, stop",
-	code: 2,
+	code:        2,
 }
 
 // ErrCakeNotFound - thrown when a call to a cake instance is required but is not found
-ErrCakeNotFound := ErrorCode{
+var ErrCakeNotFound ErrorCode = ErrorCode{
 	description: "No cake instance started",
-	code: 3,
+	code:        3,
 }
 
 // ErrGettingRepoTags - thrown when connection to repo is disrupted
-ErrGettingRepoTags := ErrorCode{
+var ErrGettingRepoTags ErrorCode = ErrorCode{
 	description: "Error while connecting to repo",
-	code: 3,
+	code:        4,
 }
 
 // ErrReadingRepoTags - thrown when repo response could not be read
-ErrReadingRepoTags := ErrorCode{
+var ErrReadingRepoTags ErrorCode = ErrorCode{
 	description: "Error while reading repo tags",
-	code: 4,
+	code:        5,
+}
+
+// ErrJsonDecode - thrown when error decoding JSON
+var ErrJsonDecode ErrorCode = ErrorCode{
+	description: "Error while decoding JSON",
+	code:        6,
 }
