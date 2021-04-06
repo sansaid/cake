@@ -10,6 +10,8 @@ import (
 	"time"
 
 	dockerTypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	dockerClient "github.com/docker/docker/client"
 )
 
@@ -252,13 +254,14 @@ func (c *Cake) PullLatestDigest() {
 
 func (c *Cake) RunLatestDigest() {
 	if !(c.IsLatestDigestRunning()) {
-		containerConfig := dockerTypes.Config{
+		containerConfig := container.Config{
 			Image: fmt.Sprintf("%s@%s", c.Repo, c.LatestDigest),
 		}
 
-		networkConfig := dockerTypes.N
+		hostConfig := container.HostConfig{}
+		networkConfig := network.NetworkingConfig{}
 
-		c.DockerClient.ContainerCreate(context.TODO(), containerConfig)
+		c.DockerClient.ContainerCreate(context.TODO(), containerConfig, hostConfig, networkConfig, "")
 	}
 }
 
