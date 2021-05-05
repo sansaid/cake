@@ -1,19 +1,21 @@
 package lib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	dockerClient "github.com/docker/docker/client"
 )
 
 type Cake struct {
-	mu                sync.Mutex
+	sync.Mutex
 	Repo              string
 	Tag               string
 	Registry          string
@@ -56,13 +58,87 @@ func NewCake(repo string, tag string, registry string) *Cake {
 	}
 }
 
-func (c *Cake) IsLatestDigestPulled() bool {
-	// TURN TO STUBBABLE FUNCTION: listImages(...)
-	// imageList, err := c.DockerClient.ImageList(context.TODO(), dockerTypes.ImageListOptions{})
+func listImages(client *dockerClient.Client) []types.ImageSummary {
+	imageList, err := client.ImageList(context.TODO(), types.ImageListOptions{})
 
-	// if err != nil {
-	// 	panic(err)
-	// }
+	if err != nil {
+		panic(err)
+	}
+
+	return imageList
+}
+
+func listContainers(client *dockerClient.Client) []types.Container {
+	containerList, err := client.ContainerList(context.TODO(), types.ContainerListOptions{})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return containerList
+}
+
+func stopContainer(cake *Cake, id string) (string, bool) {
+	err := cake.DockerClient.ContainerStop(context.TODO(), id, &cake.StopTimeout)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return id, true
+}
+
+func decodeResponse(url string, t interface{}) interface{} {
+	/// TURN TO STUBBABLE FUNCTION: getHttp(...)
+	// resp, err := http.Get(url)
+	// defer resp.Body.Close()
+
+	if err != nil {
+		ExitErr(ErrGettingRepoTags, err)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(t)
+
+	if err != nil {
+		ExitErr(ErrReadingRepoTags, err)
+	}
+
+	return t
+}
+
+func getLatestImageDigest(images []Image, arch Arch) (latestImageDigest string) {
+	archImages := []Image{}
+
+	for _, image := range images {
+		if image.Architecture == string(arch) {
+			archImages = append(archImages, image)
+		}
+	}
+
+	sort.Sort(ByLastPushedDesc(archImages))
+
+	latestImageDigest = archImages[0].Digest
+
+	return
+}
+
+func getContainerIdsByImageName(client *dockerClient.Client, image string, digest string) []string {
+	containerList := listContainers(client)
+
+	imageName := fmt.Sprintf("%s@%s", image, digest)
+	containerIds := []string{}
+
+	for _, container := range containerList {
+		if container.Image == imageName {
+			containerIds = append(containerIds, container.ID)
+		}
+	}
+
+	return containerIds
+}
+
+func (c *Cake) IsLatestDigestPulled() bool {
+	imageList := listImages(c.DockerClient)
 
 	latestImageName := fmt.Sprintf("%s@%s", c.Repo, c.LatestDigest)
 
@@ -84,12 +160,7 @@ func (c *Cake) IsLatestDigestPulled() bool {
 }
 
 func (c *Cake) IsLatestDigestRunning() bool {
-	// TURN TO STUBBABLE FUNCTION: listContainers(...)
-	// containerList, err := c.DockerClient.ContainerList(context.TODO(), dockerTypes.ContainerListOptions{})
-
-	// if err != nil {
-	// 	panic(err)
-	// }
+	containerList := listContainers(c.DockerClient)
 
 	latestImageName := fmt.Sprintf("%s@%s", c.Repo, c.LatestDigest)
 
@@ -120,16 +191,11 @@ func (c *Cake) StopPreviousDigest() {
 		containerIds := getContainerIdsByImageName(c.DockerClient, c.Repo, c.PreviousDigest)
 
 		for _, id := range containerIds {
-			// TURN TO STUBBABLE FUNCTION: stopContainer(...)
-			// err := c.DockerClient.ContainerStop(context.TODO(), id, dockerTypes.ContainerListOptions{}, c.StopTimeout)
+			stopContainer(c, id)
 
-			// if err != nil {
-			// 	panic(err)
-			// }
+			_, wasRunning := c.ContainersRunning[id]
 
-			_, ok := c.ContainersRunning[id]
-
-			if ok {
+			if wasRunning {
 				delete(c.ContainersRunning, id)
 			}
 		}
@@ -197,58 +263,4 @@ func (c *Cake) Stop() {
 
 	// TURN TO STUBBABLE FUNCTION: closeClient(...)
 	// c.DockerClient.Close()
-}
-
-func decodeResponse(url string, t interface{}) interface{} {
-	/// TURN TO STUBBABLE FUNCTION: getHttp(...)
-	// resp, err := http.Get(url)
-	// defer resp.Body.Close()
-
-	if err != nil {
-		ExitErr(ErrGettingRepoTags, err)
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(t)
-
-	if err != nil {
-		ExitErr(ErrReadingRepoTags, err)
-	}
-
-	return t
-}
-
-func getLatestImageDigest(images []Image, arch Arch) (latestImageDigest string) {
-	archImages := []Image{}
-
-	for _, image := range images {
-		if image.Architecture == string(arch) {
-			archImages = append(archImages, image)
-		}
-	}
-
-	sort.Sort(ByLastPushedDesc(archImages))
-
-	latestImageDigest = archImages[0].Digest
-
-	return
-}
-
-func getContainerIdsByImageName(client *dockerClient.Client, image string, digest string) []string {
-	// TURN TO STUBBABLE FUNCTION: listContainers(...)
-	// containerList, err := c.DockerClient.ContainerList(context.TODO(), dockerTypes.ContainerListOptions{})
-
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	imageName := fmt.Sprintf("%s@%s", image, digest)
-	containerIds := []string{}
-
-	for _, container := range containerList {
-		if container.Image == imageName {
-			containerIds = append(containerIds, container.ID)
-		}
-	}
-
-	return containerIds
 }
