@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	dockerClient "github.com/docker/docker/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type Cake struct {
@@ -88,10 +90,13 @@ func stopContainer(cake *Cake, id string) (string, bool) {
 	return id, true
 }
 
+func closeClient(c *Cake) {
+	c.DockerClient.Close()
+}
+
 func decodeResponse(url string, t interface{}) interface{} {
-	/// TURN TO STUBBABLE FUNCTION: getHttp(...)
-	// resp, err := http.Get(url)
-	// defer resp.Body.Close()
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
 
 	if err != nil {
 		ExitErr(ErrGettingRepoTags, err)
@@ -135,6 +140,24 @@ func getContainerIdsByImageName(client *dockerClient.Client, image string, diges
 	}
 
 	return containerIds
+}
+
+func pullImage(client *dockerClient.Client, imageRef string) {
+	reader, err := client.ImagePull(context.TODO(), imageRef, types.ImagePullOptions{})
+	defer reader.Close()
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func createContainer(client *dockerClient.Client, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) {
+	platform := &specs.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
+
+	client.ContainerCreate(context.TODO(), &containerConfig, &hostConfig, &networkConfig, platform, "")
 }
 
 func (c *Cake) IsLatestDigestPulled() bool {
@@ -206,13 +229,7 @@ func (c *Cake) PullLatestDigest() {
 	if !(c.IsLatestDigestPulled()) {
 		imageRef := fmt.Sprintf("%s@%s", c.Repo, c.LatestDigest)
 
-		// TURN TO STUBBABLE FUNCTION: pullImage(...)
-		// reader, err := c.DockerClient.ImagePull(context.TODO(), imageRef, dockerTypes.ImagePullOptions{})
-		// defer reader.Close()
-
-		// if err != nil {
-		// 	panic(err)
-		// }
+		pullImage(c.DockerClient, imageRef)
 	}
 }
 
@@ -225,8 +242,7 @@ func (c *Cake) RunLatestDigest() {
 		hostConfig := container.HostConfig{}
 		networkConfig := network.NetworkingConfig{}
 
-		// TURN TO STUBBABLE FUNCTION: createContainer(...)
-		// c.DockerClient.ContainerCreate(context.TODO(), containerConfig, hostConfig, networkConfig, "")
+		createContainer(c.DockerClient, containerConfig, hostConfig, networkConfig)
 	}
 }
 
@@ -253,14 +269,8 @@ func (c *Cake) Run() {
 // Stop - stop this instance of cake and perform some clean up
 func (c *Cake) Stop() {
 	for containerId, _ := range c.ContainersRunning {
-		// TURN TO STUBBABLE FUNCTION: stopContainer(...)
-		// err := c.DockerClient.ContainerStop(context.TODO(), containerId, c.StopTimeout)
-
-		// if err != nil {
-		// 	panic(err)
-		// }
+		stopContainer(c, containerId)
 	}
 
-	// TURN TO STUBBABLE FUNCTION: closeClient(...)
-	// c.DockerClient.Close()
+	defer closeClient(c)
 }
