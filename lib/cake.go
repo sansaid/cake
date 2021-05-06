@@ -60,7 +60,7 @@ func NewCake(repo string, tag string, registry string) *Cake {
 	}
 }
 
-func listImages(client *dockerClient.Client) []types.ImageSummary {
+var listImages = func(client *dockerClient.Client) []types.ImageSummary {
 	imageList, err := client.ImageList(context.TODO(), types.ImageListOptions{})
 
 	if err != nil {
@@ -70,7 +70,7 @@ func listImages(client *dockerClient.Client) []types.ImageSummary {
 	return imageList
 }
 
-func listContainers(client *dockerClient.Client) []types.Container {
+var listContainers = func(client *dockerClient.Client) []types.Container {
 	containerList, err := client.ContainerList(context.TODO(), types.ContainerListOptions{})
 
 	if err != nil {
@@ -80,7 +80,7 @@ func listContainers(client *dockerClient.Client) []types.Container {
 	return containerList
 }
 
-func stopContainer(cake *Cake, id string) (string, bool) {
+var stopContainer = func(cake *Cake, id string) (string, bool) {
 	err := cake.DockerClient.ContainerStop(context.TODO(), id, &cake.StopTimeout)
 
 	if err != nil {
@@ -90,11 +90,11 @@ func stopContainer(cake *Cake, id string) (string, bool) {
 	return id, true
 }
 
-func closeClient(c *Cake) {
+var closeClient = func(c *Cake) {
 	c.DockerClient.Close()
 }
 
-func decodeResponse(url string, t interface{}) interface{} {
+var decodeResponse = func(url string, t interface{}) interface{} {
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 
@@ -111,7 +111,7 @@ func decodeResponse(url string, t interface{}) interface{} {
 	return t
 }
 
-func getLatestImageDigest(images []Image, arch Arch) (latestImageDigest string) {
+var getLatestImageDigest = func(images []Image, arch Arch) (latestImageDigest string) {
 	archImages := []Image{}
 
 	for _, image := range images {
@@ -127,7 +127,7 @@ func getLatestImageDigest(images []Image, arch Arch) (latestImageDigest string) 
 	return
 }
 
-func getContainerIdsByImageName(client *dockerClient.Client, image string, digest string) []string {
+var getContainerIdsByImageName = func(client *dockerClient.Client, image string, digest string) []string {
 	containerList := listContainers(client)
 
 	imageName := fmt.Sprintf("%s@%s", image, digest)
@@ -142,7 +142,7 @@ func getContainerIdsByImageName(client *dockerClient.Client, image string, diges
 	return containerIds
 }
 
-func pullImage(client *dockerClient.Client, imageRef string) {
+var pullImage = func(client *dockerClient.Client, imageRef string) {
 	reader, err := client.ImagePull(context.TODO(), imageRef, types.ImagePullOptions{})
 	defer reader.Close()
 
@@ -151,7 +151,7 @@ func pullImage(client *dockerClient.Client, imageRef string) {
 	}
 }
 
-func createContainer(client *dockerClient.Client, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) {
+var createContainer = func(client *dockerClient.Client, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) {
 	platform := &specs.Platform{
 		Architecture: "amd64",
 		OS:           "linux",

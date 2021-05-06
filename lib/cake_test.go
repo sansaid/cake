@@ -27,13 +27,13 @@ func TestIsLatestDigestPulledOK(t *testing.T) {
 		// Some white box testing here - only care about defining the RepoDigests field
 		// since that's the only field used in the function
 		return []types.ImageSummary{
-			types.ImageSummary{
+			{
 				RepoDigests: []string{"TestLatestDigest", "ADigest"},
 			},
-			types.ImageSummary{
+			{
 				RepoDigests: []string{"BDigest", "CDigest"},
 			},
-			types.ImageSummary{
+			{
 				RepoDigests: []string{"DDigest"},
 			},
 		}
