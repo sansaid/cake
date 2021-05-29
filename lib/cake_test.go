@@ -5,21 +5,26 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	dockerClient "github.com/docker/docker/client"
 )
 
+type ResultMap struct {
+	result string
+	expect string
+}
+
+func log(t *testing.T, result interface{}, expect interface{}) {
+	t.Logf("Expected %v, got %v", expect, result)
+}
+
+// Test when latest digest is pulled
 func TestIsLatestDigestPulled_OK(t *testing.T) {
 	cake := &Cake{
-		Repo:              "test/repo",
-		Tag:               "sometag",
-		Registry:          "test.registry",
-		DockerClient:      &dockerClient.Client{},
-		PreviousDigest:    "",
-		LatestDigest:      "TestLatestDigest",
-		LastChecked:       time.Time{},
-		LastUpdated:       time.Time{},
-		ContainersRunning: map[string]int{},
-		StopTimeout:       time.Duration(30),
+		Repo:           "test/repo",
+		PreviousDigest: "",
+		LatestDigest:   "TestLatestDigest",
 	}
 
 	// Mocking listImages function inside Cake.IsLatestDigestPulled()
@@ -43,22 +48,17 @@ func TestIsLatestDigestPulled_OK(t *testing.T) {
 	expect := true
 
 	if result != expect {
+		log(t, result, expect)
 		t.Fail()
 	}
 }
 
+// Test when latest digest is not pulled
 func TestIsLatestDigestPulled_Bad(t *testing.T) {
 	cake := &Cake{
-		Repo:              "test/repo",
-		Tag:               "sometag",
-		Registry:          "test.registry",
-		DockerClient:      &dockerClient.Client{},
-		PreviousDigest:    "",
-		LatestDigest:      "TestLatestDigest",
-		LastChecked:       time.Time{},
-		LastUpdated:       time.Time{},
-		ContainersRunning: map[string]int{},
-		StopTimeout:       time.Duration(30),
+		Repo:           "test/repo",
+		PreviousDigest: "",
+		LatestDigest:   "TestLatestDigest",
 	}
 
 	// Mocking listImages function inside Cake.IsLatestDigestPulled()
@@ -82,22 +82,17 @@ func TestIsLatestDigestPulled_Bad(t *testing.T) {
 	expect := false
 
 	if result != expect {
+		log(t, result, expect)
 		t.Fail()
 	}
 }
 
+// Test when latest digest is running
 func TestIsLatestDigestRunning_OK(t *testing.T) {
 	cake := &Cake{
-		Repo:              "test/repo",
-		Tag:               "sometag",
-		Registry:          "test.registry",
-		DockerClient:      &dockerClient.Client{},
-		PreviousDigest:    "",
-		LatestDigest:      "TestLatestDigest",
-		LastChecked:       time.Time{},
-		LastUpdated:       time.Time{},
-		ContainersRunning: map[string]int{},
-		StopTimeout:       time.Duration(30),
+		Repo:           "test/repo",
+		PreviousDigest: "",
+		LatestDigest:   "TestLatestDigest",
 	}
 
 	// Mocking listContainers function inside Cake.IsLatestDigestRunning()
@@ -121,22 +116,17 @@ func TestIsLatestDigestRunning_OK(t *testing.T) {
 	expect := true
 
 	if result != expect {
+		log(t, result, expect)
 		t.Fail()
 	}
 }
 
+// Test when latest digest is not running
 func TestIsLatestDigestRunning_Bad(t *testing.T) {
 	cake := &Cake{
-		Repo:              "test/repo",
-		Tag:               "sometag",
-		Registry:          "test.registry",
-		DockerClient:      &dockerClient.Client{},
-		PreviousDigest:    "",
-		LatestDigest:      "TestLatestDigest",
-		LastChecked:       time.Time{},
-		LastUpdated:       time.Time{},
-		ContainersRunning: map[string]int{},
-		StopTimeout:       time.Duration(30),
+		Repo:           "test/repo",
+		PreviousDigest: "",
+		LatestDigest:   "TestLatestDigest",
 	}
 
 	// Mocking listContainer function inside Cake.IsLatestDigestPulled()
@@ -160,6 +150,398 @@ func TestIsLatestDigestRunning_Bad(t *testing.T) {
 	expect := false
 
 	if result != expect {
+		log(t, result, expect)
 		t.Fail()
 	}
+}
+
+// Test when current latest is not in the list of returned digests
+func TestGetLatestDigest_LatestNotListed(t *testing.T) {
+	cake := &Cake{
+		Repo:               "test/repo",
+		LatestDigest:       "TestLatestDigest",
+		LatestDigestTime:   time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC),
+		PreviousDigest:     "TestPreviousDigest",
+		PreviousDigestTime: time.Date(2020, time.May, 9, 0, 0, 0, 0, *&time.UTC),
+	}
+
+	curr_time := time.Now()
+	old_last_updated := cake.LastUpdated
+
+	getImageDigests = func(_ string, _ Arch) []Image {
+		return []Image{
+			{
+				Digest:     "OldDigestOne",
+				LastPushed: time.Date(2020, time.May, 7, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "OldDigestTwo",
+				LastPushed: time.Date(2020, time.May, 6, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "OldDigestThree",
+				LastPushed: time.Date(2020, time.May, 5, 0, 0, 0, 0, *&time.UTC),
+			},
+		}
+	}
+
+	cake.GetLatestDigest(Amd64)
+
+	results := []ResultMap{
+		{
+			result: cake.LatestDigest,
+			expect: "TestLatestDigest",
+		},
+		{
+			result: cake.PreviousDigest,
+			expect: "TestPreviousDigest",
+		},
+	}
+
+	for _, r := range results {
+		if r.result != r.expect {
+			log(t, r.result, r.expect)
+			t.Fail()
+		}
+	}
+
+	if cake.LastChecked.Before(curr_time) {
+		t.Logf("Expected cake.LastChecked to be after current time, got: %v", cake.LastChecked)
+		t.Fail()
+	}
+
+	if cake.LastUpdated != old_last_updated {
+		log(t, old_last_updated, cake.LastUpdated)
+		t.Fail()
+	}
+}
+
+// Test when current latest is the latest in returned digests
+func TestGetLatestDigest_CurrLatestIsLatest(t *testing.T) {
+	cake := &Cake{
+		Repo:               "test/repo",
+		LatestDigest:       "TestLatestDigest",
+		LatestDigestTime:   time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC),
+		PreviousDigest:     "TestPreviousDigest",
+		PreviousDigestTime: time.Date(2020, time.May, 9, 0, 0, 0, 0, *&time.UTC),
+	}
+
+	curr_time := time.Now()
+	old_last_updated := cake.LastUpdated
+
+	getImageDigests = func(_ string, _ Arch) []Image {
+		return []Image{
+			{
+				Digest:     "TestPreviousDigest",
+				LastPushed: time.Date(2020, time.May, 9, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "TestLatestDigest",
+				LastPushed: time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "OldDigestThree",
+				LastPushed: time.Date(2020, time.May, 5, 0, 0, 0, 0, *&time.UTC),
+			},
+		}
+	}
+
+	cake.GetLatestDigest(Amd64)
+
+	results := []ResultMap{
+		{
+			result: cake.LatestDigest,
+			expect: "TestLatestDigest",
+		},
+		{
+			result: cake.PreviousDigest,
+			expect: "TestPreviousDigest",
+		},
+	}
+
+	for _, r := range results {
+		if r.result != r.expect {
+			log(t, r.result, r.expect)
+			t.Fail()
+		}
+	}
+
+	if cake.LastChecked.Before(curr_time) {
+		t.Logf("Expected cake.LastChecked to be after current time, got: %v", cake.LastChecked)
+		t.Fail()
+	}
+
+	if cake.LastUpdated != old_last_updated {
+		log(t, old_last_updated, cake.LastUpdated)
+		t.Fail()
+	}
+}
+
+// Test when latest is not the one in cake
+func TestGetLatestDigest_CurrLatestIsNotLatest(t *testing.T) {
+	cake := &Cake{
+		Repo:               "test/repo",
+		LatestDigest:       "TestCurrentDigest",
+		LatestDigestTime:   time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC),
+		PreviousDigest:     "TestPreviousDigest",
+		PreviousDigestTime: time.Date(2020, time.May, 9, 0, 0, 0, 0, *&time.UTC),
+	}
+
+	curr_time := time.Now()
+
+	getImageDigests = func(_ string, _ Arch) []Image {
+		return []Image{
+			{
+				Digest:     "TestPreviousDigest",
+				LastPushed: time.Date(2020, time.May, 9, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "TestCurrentDigest",
+				LastPushed: time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC),
+			},
+			{
+				Digest:     "TestLatestDigest",
+				LastPushed: time.Date(2020, time.May, 11, 0, 0, 0, 0, *&time.UTC),
+			},
+		}
+	}
+
+	cake.GetLatestDigest(Amd64)
+
+	results := []ResultMap{
+		{
+			result: cake.LatestDigest,
+			expect: "TestLatestDigest",
+		},
+		{
+			result: cake.LatestDigestTime.String(),
+			expect: time.Date(2020, time.May, 11, 0, 0, 0, 0, *&time.UTC).String(),
+		},
+		{
+			result: cake.PreviousDigest,
+			expect: "TestCurrentDigest",
+		},
+		{
+			result: cake.PreviousDigestTime.String(),
+			expect: time.Date(2020, time.May, 10, 0, 0, 0, 0, *&time.UTC).String(),
+		},
+	}
+
+	for _, r := range results {
+		if r.result != r.expect {
+			log(t, r.result, r.expect)
+			t.Fail()
+		}
+	}
+
+	if cake.LastChecked.Before(curr_time) {
+		t.Logf("Expected cake.LastChecked to be after current time, got: %v", cake.LastChecked)
+		t.Fail()
+	}
+
+	if cake.LastUpdated.Before(curr_time) {
+		t.Logf("Expected cake.LastUpdated to be after current time, got: %v", cake.LastUpdated)
+		t.Fail()
+	}
+}
+
+// Test stopping when no previous digest specified
+func TestStopPreviousDigest_NoPreviouDigest(t *testing.T) {
+	var containerStopped string
+
+	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+		return []string{}
+	}
+
+	stopContainer = func(_ *Cake, id string) {
+		containerStopped = id
+	}
+
+	cake := Cake{
+		ContainersRunning: map[string]int{
+			"a": 0,
+			"b": 0,
+			"c": 0,
+		},
+	}
+
+	expected := map[string]int{
+		"a": 0,
+		"b": 0,
+		"c": 0,
+	}
+
+	cake.StopPreviousDigest()
+
+	for id := range expected {
+		if _, ok := cake.ContainersRunning[id]; ok != true {
+			t.Logf("Expected %s to be running, but instead was stopped", id)
+			t.Fail()
+		}
+	}
+
+	if containerStopped != "" {
+		log(t, containerStopped, "")
+		t.Fail()
+	}
+}
+
+// Test stopping when previous digest is not running
+func TestStopPreviousDigest_PreviouDigestNotRunning(t *testing.T) {
+	var containerStopped string
+
+	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+		return []string{}
+	}
+
+	stopContainer = func(_ *Cake, id string) {
+		containerStopped = id
+	}
+
+	cake := Cake{
+		PreviousDigest: "TestPreviousDigest",
+		ContainersRunning: map[string]int{
+			"a": 0,
+			"b": 0,
+			"c": 0,
+		},
+	}
+
+	expected := map[string]int{
+		"a": 0,
+		"b": 0,
+		"c": 0,
+	}
+
+	cake.StopPreviousDigest()
+
+	for id := range expected {
+		if _, ok := cake.ContainersRunning[id]; ok != true {
+			t.Logf("Expected %s to be running, but instead was stopped", id)
+			t.Fail()
+		}
+	}
+
+	if containerStopped != "" {
+		log(t, containerStopped, "")
+		t.Fail()
+	}
+}
+
+// Test stopping when previous digest is running
+func TestStopPreviousDigest_PreviouDigestIsRunning(t *testing.T) {
+	containerStopped := []string{}
+
+	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+		return []string{"a", "c"}
+	}
+
+	stopContainer = func(_ *Cake, id string) {
+		containerStopped = append(containerStopped, id)
+	}
+
+	cake := Cake{
+		PreviousDigest: "TestPreviousDigest",
+		ContainersRunning: map[string]int{
+			"a": 0,
+			"b": 0,
+			"c": 0,
+			"d": 0,
+		},
+	}
+
+	expected := map[string]int{
+		"b": 0,
+		"d": 0,
+	}
+
+	cake.StopPreviousDigest()
+
+	for id := range expected {
+		if _, ok := cake.ContainersRunning[id]; ok != true {
+			t.Logf("Expected %s to be running, but instead was stopped", id)
+			t.Fail()
+		}
+	}
+
+	if len(containerStopped) != 2 {
+		log(t, containerStopped, []string{"a", "c"})
+		t.Fail()
+	}
+}
+
+// Test when latest digest is pulled
+func TestPullLatestDigest_Pulled(t *testing.T) {
+	var pulledImage string
+
+	listImages = func(_ *dockerClient.Client) []types.ImageSummary {
+		return []types.ImageSummary{
+			{
+				RepoDigests: []string{"TestRepo@TestLatestDigest"},
+			},
+		}
+	}
+
+	pullImage = func(_ *dockerClient.Client, imageRef string) {
+		pulledImage = imageRef
+	}
+
+	cake := Cake{
+		LatestDigest: "TestLatestDigest",
+		Repo:         "TestRepo",
+	}
+
+	cake.PullLatestDigest()
+
+	if pulledImage != "" {
+		log(t, pulledImage, "")
+		t.Fail()
+	}
+}
+
+// Test when latest digest is running but not under Cake's management
+func TestRunLatestDigest_RunningNotControlled(t *testing.T) {
+	var runningContainer string
+
+	listContainers = func(_ *dockerClient.Client) []types.Container {
+		return []types.Container{
+			{
+				Image: "TestRepo@TestLatestDigest",
+			},
+		}
+	}
+
+	createContainer = func(_ *dockerClient.Client, containerConfig container.Config, _ container.HostConfig, _ network.NetworkingConfig) string {
+		runningContainer = containerConfig.Image
+
+		return "ShouldNotBeRunning"
+	}
+
+	cake := Cake{
+		LatestDigest:      "TestLatestDigest",
+		Repo:              "TestRepo",
+		ContainersRunning: map[string]int{},
+	}
+
+	cake.RunLatestDigest()
+
+	if runningContainer != "" {
+		log(t, runningContainer, "")
+		t.Fail()
+	}
+
+	if _, ok := cake.ContainersRunning["TestRepo@TestLatestDigest"]; ok != true {
+		log(t, cake.ContainersRunning, map[string]int{"TestRepo@TestLatestDigest": 0})
+		t.Fail()
+	}
+}
+
+// Test when latest container is running and is under cake's management
+func TestRunLatestDigest_RunningAndControlled(t *testing.T) {
+	// TODO
+}
+
+// Test when latest container is not running
+func TestRunLatestDigest_NotRunningNotControlled(t *testing.T) {
+	// TODO
 }

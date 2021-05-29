@@ -16,18 +16,23 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// TODO: The use of the word `digest` in variable and function names is inconsistently being used - need to make this more consistent
+// TODO: Write functionality to sync cake with the local system that's being manage externally to it
+
 type Cake struct {
 	sync.Mutex
-	Repo              string
-	Tag               string
-	Registry          string
-	DockerClient      *dockerClient.Client
-	PreviousDigest    string
-	LatestDigest      string
-	LastChecked       time.Time
-	LastUpdated       time.Time
-	ContainersRunning map[string]int
-	StopTimeout       time.Duration
+	Repo               string
+	Tag                string
+	Registry           string
+	DockerClient       *dockerClient.Client
+	PreviousDigest     string
+	PreviousDigestTime time.Time
+	LatestDigest       string
+	LatestDigestTime   time.Time
+	LastChecked        time.Time
+	LastUpdated        time.Time
+	ContainersRunning  map[string]int
+	StopTimeout        time.Duration
 }
 
 type Arch string
@@ -47,16 +52,18 @@ func NewCake(repo string, tag string, registry string) *Cake {
 	}
 
 	return &Cake{
-		Repo:              repo,
-		Tag:               tag,
-		Registry:          registry,
-		DockerClient:      client,
-		PreviousDigest:    "",
-		LatestDigest:      "",
-		LastChecked:       time.Time{},
-		LastUpdated:       time.Time{},
-		ContainersRunning: map[string]int{},
-		StopTimeout:       time.Duration(30),
+		Repo:               repo,
+		Tag:                tag,
+		Registry:           registry,
+		DockerClient:       client,
+		PreviousDigest:     "",
+		PreviousDigestTime: time.Time{},
+		LatestDigest:       "",
+		LatestDigestTime:   time.Time{},
+		LastChecked:        time.Time{},
+		LastUpdated:        time.Time{},
+		ContainersRunning:  map[string]int{},
+		StopTimeout:        time.Duration(30),
 	}
 }
 
@@ -80,14 +87,21 @@ var listContainers = func(client *dockerClient.Client) []types.Container {
 	return containerList
 }
 
-var stopContainer = func(cake *Cake, id string) (string, bool) {
-	err := cake.DockerClient.ContainerStop(context.TODO(), id, &cake.StopTimeout)
+var stopContainer = func(cake *Cake, id string) {
+	// TODO: fix the channel logic
+	ctx := context.TODO()
+
+	err := cake.DockerClient.ContainerStop(ctx, id, &cake.StopTimeout)
 
 	if err != nil {
 		panic(err)
 	}
 
-	return id, true
+	_, errC := cake.DockerClient.ContainerWait(ctx, id, "removed")
+
+	if errC != nil {
+		panic(err)
+	}
 }
 
 var closeClient = func(c *Cake) {
@@ -111,8 +125,13 @@ var decodeResponse = func(url string, t interface{}) interface{} {
 	return t
 }
 
-var getLatestImageDigest = func(images []Image, arch Arch) (latestImageDigest string) {
+var getImageDigests = func(repoURL string, arch Arch) []Image {
+	// TODO: see if filter for architecture can be done through REST API
+	repoList := RepoList{}
+	decodeResponse(repoURL, &repoList)
+
 	archImages := []Image{}
+	images := repoList.Results[0].Images
 
 	for _, image := range images {
 		if image.Architecture == string(arch) {
@@ -120,14 +139,10 @@ var getLatestImageDigest = func(images []Image, arch Arch) (latestImageDigest st
 		}
 	}
 
-	sort.Sort(ByLastPushedDesc(archImages))
-
-	latestImageDigest = archImages[0].Digest
-
-	return
+	return archImages
 }
 
-var getContainerIdsByImageName = func(client *dockerClient.Client, image string, digest string) []string {
+var getContainerIdFromPreviousDigest = func(client *dockerClient.Client, image string, digest string) []string {
 	containerList := listContainers(client)
 
 	imageName := fmt.Sprintf("%s@%s", image, digest)
@@ -151,13 +166,27 @@ var pullImage = func(client *dockerClient.Client, imageRef string) {
 	}
 }
 
-var createContainer = func(client *dockerClient.Client, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) {
+var createContainer = func(client *dockerClient.Client, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) string {
+	ctx := context.TODO()
+
 	platform := &specs.Platform{
 		Architecture: "amd64",
 		OS:           "linux",
 	}
 
-	client.ContainerCreate(context.TODO(), &containerConfig, &hostConfig, &networkConfig, platform, "")
+	createdContainer, err := client.ContainerCreate(ctx, &containerConfig, &hostConfig, &networkConfig, platform, "")
+
+	if err != nil {
+		panic(err)
+	}
+
+	_, errC := client.ContainerWait(ctx, createdContainer.ID, "created")
+
+	if errC != nil {
+		panic(errC)
+	}
+
+	return createdContainer.ID
 }
 
 func (c *Cake) IsLatestDigestPulled() bool {
@@ -196,13 +225,24 @@ func (c *Cake) IsLatestDigestRunning() bool {
 	return false
 }
 
-func (c *Cake) GetLatestDigest(images []Image, arch Arch) *Cake {
+func (c *Cake) GetLatestDigest(arch Arch) *Cake {
 	c.LastChecked = time.Now()
-	latestDigest := getLatestImageDigest(images, arch)
 
-	if latestDigest != c.LatestDigest {
+	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2c/repositories/%s/tags?ordering=last_updated", c.Repo)
+	images := getImageDigests(repoURL, arch)
+
+	sort.Sort(ByLastPushedDesc(images))
+
+	latestDigest := images[0].Digest
+	latestDigestTime := images[0].LastPushed
+
+	// Is it certain that every new image push will create a new digest?
+	// Can an existing digest be updated?
+	if latestDigestTime.After(c.LatestDigestTime) {
 		c.PreviousDigest = c.LatestDigest
+		c.PreviousDigestTime = c.LatestDigestTime
 		c.LatestDigest = latestDigest
+		c.LatestDigestTime = latestDigestTime
 		c.LastUpdated = time.Now()
 	}
 
@@ -211,7 +251,7 @@ func (c *Cake) GetLatestDigest(images []Image, arch Arch) *Cake {
 
 func (c *Cake) StopPreviousDigest() {
 	if c.PreviousDigest != "" {
-		containerIds := getContainerIdsByImageName(c.DockerClient, c.Repo, c.PreviousDigest)
+		containerIds := getContainerIdFromPreviousDigest(c.DockerClient, c.Repo, c.PreviousDigest)
 
 		for _, id := range containerIds {
 			stopContainer(c, id)
@@ -242,20 +282,18 @@ func (c *Cake) RunLatestDigest() {
 		hostConfig := container.HostConfig{}
 		networkConfig := network.NetworkingConfig{}
 
-		createContainer(c.DockerClient, containerConfig, hostConfig, networkConfig)
+		id := createContainer(c.DockerClient, containerConfig, hostConfig, networkConfig)
+
+		c.ContainersRunning[id] = 0
 	}
+
+	// If the latest digest is running, check if it's included in ContainersRunning
+	// Assume control if not
 }
 
 // Run - run cake
 func (c *Cake) Run() {
-	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", c.Repo)
-
-	repoList := RepoList{}
-	decodeResponse(repoURL, &repoList)
-
-	images := repoList.Results[0].Images
-
-	c.GetLatestDigest(images, Amd64)
+	c.GetLatestDigest(Amd64)
 
 	if c.LastUpdated.After(c.LastChecked) {
 		c.StopPreviousDigest()
