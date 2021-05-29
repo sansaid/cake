@@ -36,7 +36,7 @@ type ImageDetails struct {
 type ByLastPushedDesc []Image
 
 // Len - implement sort.Interface for ByLastPushedDesc
-func (i ByLastPushedDesc) Len() int { return 0 }
+func (i ByLastPushedDesc) Len() int { return len(i) }
 
 // Less - implement sort.Interface for ByLastPushedDesc
 func (i ByLastPushedDesc) Less(a int, b int) bool {
