@@ -12,12 +12,14 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+
 	dockerClient "github.com/docker/docker/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // TODO: The use of the word `digest` in variable and function names is inconsistently being used - need to make this more consistent
-// TODO: Write functionality to sync cake with the local system that's being manage externally to it
+// TODO: Write functionality to sync `cake` with the local system that's being manage externally to it
+// TODO: Think about how to deal with pruning containers and images with `cake` on RasbPi - should stopped containers also be deleted and have their images removed?
 
 type Cake struct {
 	sync.Mutex
@@ -142,7 +144,7 @@ var getImageDigests = func(repoURL string, arch Arch) []Image {
 	return archImages
 }
 
-var getContainerIdFromPreviousDigest = func(client *dockerClient.Client, image string, digest string) []string {
+var getRunningContainerIds = func(client *dockerClient.Client, image string, digest string) []string {
 	containerList := listContainers(client)
 
 	imageName := fmt.Sprintf("%s@%s", image, digest)
@@ -251,7 +253,7 @@ func (c *Cake) GetLatestDigest(arch Arch) *Cake {
 
 func (c *Cake) StopPreviousDigest() {
 	if c.PreviousDigest != "" {
-		containerIds := getContainerIdFromPreviousDigest(c.DockerClient, c.Repo, c.PreviousDigest)
+		containerIds := getRunningContainerIds(c.DockerClient, c.Repo, c.PreviousDigest)
 
 		for _, id := range containerIds {
 			stopContainer(c, id)
@@ -285,10 +287,19 @@ func (c *Cake) RunLatestDigest() {
 		id := createContainer(c.DockerClient, containerConfig, hostConfig, networkConfig)
 
 		c.ContainersRunning[id] = 0
-	}
+	} else {
+		runningContainers := getRunningContainerIds(c.DockerClient, c.Repo, c.LatestDigest)
 
-	// If the latest digest is running, check if it's included in ContainersRunning
-	// Assume control if not
+		// Checks if the container is in Cake's control. If it's not,
+		// Cake adds it to its list of running containers.
+		for _, id := range runningContainers {
+			_, managedByCake := c.ContainersRunning[id]
+
+			if !(managedByCake) {
+				c.ContainersRunning[id] = 0
+			}
+		}
+	}
 }
 
 // Run - run cake
@@ -300,8 +311,6 @@ func (c *Cake) Run() {
 		c.PullLatestDigest()
 		c.RunLatestDigest()
 	}
-
-	// TBC: create go routine to prune all images/containers every interval (this should be a cake setting)
 }
 
 // Stop - stop this instance of cake and perform some clean up

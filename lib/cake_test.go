@@ -349,7 +349,7 @@ func TestGetLatestDigest_CurrLatestIsNotLatest(t *testing.T) {
 func TestStopPreviousDigest_NoPreviouDigest(t *testing.T) {
 	var containerStopped string
 
-	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+	getRunningContainerIds = func(_ *dockerClient.Client, _ string, _ string) []string {
 		return []string{}
 	}
 
@@ -390,7 +390,7 @@ func TestStopPreviousDigest_NoPreviouDigest(t *testing.T) {
 func TestStopPreviousDigest_PreviouDigestNotRunning(t *testing.T) {
 	var containerStopped string
 
-	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+	getRunningContainerIds = func(_ *dockerClient.Client, _ string, _ string) []string {
 		return []string{}
 	}
 
@@ -432,7 +432,7 @@ func TestStopPreviousDigest_PreviouDigestNotRunning(t *testing.T) {
 func TestStopPreviousDigest_PreviouDigestIsRunning(t *testing.T) {
 	containerStopped := []string{}
 
-	getContainerIdFromPreviousDigest = func(_ *dockerClient.Client, _ string, _ string) []string {
+	getRunningContainerIds = func(_ *dockerClient.Client, _ string, _ string) []string {
 		return []string{"a", "c"}
 	}
 
@@ -501,9 +501,9 @@ func TestPullLatestDigest_Pulled(t *testing.T) {
 
 // Test when latest digest is running but not under Cake's management
 func TestRunLatestDigest_RunningNotControlled(t *testing.T) {
-	var runningContainer string
+	expectedContainers := []string{"a", "c"}
 
-	listContainers = func(_ *dockerClient.Client) []types.Container {
+	listContainers = func(client *dockerClient.Client) []types.Container {
 		return []types.Container{
 			{
 				Image: "TestRepo@TestLatestDigest",
@@ -511,10 +511,8 @@ func TestRunLatestDigest_RunningNotControlled(t *testing.T) {
 		}
 	}
 
-	createContainer = func(_ *dockerClient.Client, containerConfig container.Config, _ container.HostConfig, _ network.NetworkingConfig) string {
-		runningContainer = containerConfig.Image
-
-		return "ShouldNotBeRunning"
+	getRunningContainerIds = func(_ *dockerClient.Client, _ string, _ string) []string {
+		return expectedContainers
 	}
 
 	cake := Cake{
@@ -525,23 +523,68 @@ func TestRunLatestDigest_RunningNotControlled(t *testing.T) {
 
 	cake.RunLatestDigest()
 
-	if runningContainer != "" {
-		log(t, runningContainer, "")
-		t.Fail()
-	}
-
-	if _, ok := cake.ContainersRunning["TestRepo@TestLatestDigest"]; ok != true {
-		log(t, cake.ContainersRunning, map[string]int{"TestRepo@TestLatestDigest": 0})
-		t.Fail()
+	for _, id := range expectedContainers {
+		if _, ok := cake.ContainersRunning[id]; !(ok) {
+			t.Logf("Expected containers running %v, but Cake had %v", expectedContainers, cake.ContainersRunning)
+			t.Fail()
+		}
 	}
 }
 
 // Test when latest container is running and is under cake's management
 func TestRunLatestDigest_RunningAndControlled(t *testing.T) {
-	// TODO
+	expectedContainers := []string{"a", "c"}
+
+	listContainers = func(client *dockerClient.Client) []types.Container {
+		return []types.Container{
+			{
+				Image: "TestRepo@TestLatestDigest",
+			},
+		}
+	}
+
+	getRunningContainerIds = func(_ *dockerClient.Client, _ string, _ string) []string {
+		return expectedContainers
+	}
+
+	cake := Cake{
+		LatestDigest:      "TestLatestDigest",
+		Repo:              "TestRepo",
+		ContainersRunning: map[string]int{"a": 0, "c": 0},
+	}
+
+	cake.RunLatestDigest()
+
+	for _, id := range expectedContainers {
+		if _, ok := cake.ContainersRunning[id]; !(ok) {
+			t.Logf("Expected containers running %v, but Cake had %v", expectedContainers, cake.ContainersRunning)
+			t.Fail()
+		}
+	}
 }
 
 // Test when latest container is not running
 func TestRunLatestDigest_NotRunningNotControlled(t *testing.T) {
-	// TODO
+	expectedContainer := "TestContainerId"
+
+	listContainers = func(client *dockerClient.Client) []types.Container {
+		return []types.Container{}
+	}
+
+	createContainer = func(_ *dockerClient.Client, _ container.Config, _ container.HostConfig, _ network.NetworkingConfig) string {
+		return expectedContainer
+	}
+
+	cake := Cake{
+		LatestDigest:      "TestLatestDigest",
+		Repo:              "TestRepo",
+		ContainersRunning: map[string]int{},
+	}
+
+	cake.RunLatestDigest()
+
+	if _, ok := cake.ContainersRunning[expectedContainer]; !(ok) {
+		log(t, cake.ContainersRunning, map[string]int{expectedContainer: 0})
+		t.Fail()
+	}
 }
