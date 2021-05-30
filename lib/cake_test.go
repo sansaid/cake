@@ -499,6 +499,31 @@ func TestPullLatestDigest_Pulled(t *testing.T) {
 	}
 }
 
+// Test when latest digest is not pulled
+func TestPullLatestDigest_NotPulled(t *testing.T) {
+	var pulledImage string
+
+	listImages = func(_ *dockerClient.Client) []types.ImageSummary {
+		return []types.ImageSummary{}
+	}
+
+	pullImage = func(_ *dockerClient.Client, imageRef string) {
+		pulledImage = imageRef
+	}
+
+	cake := Cake{
+		LatestDigest: "TestLatestDigest",
+		Repo:         "TestRepo",
+	}
+
+	cake.PullLatestDigest()
+
+	if pulledImage != "TestRepo@TestLatestDigest" {
+		log(t, pulledImage, "")
+		t.Fail()
+	}
+}
+
 // Test when latest digest is running but not under Cake's management
 func TestRunLatestDigest_RunningNotControlled(t *testing.T) {
 	expectedContainers := []string{"a", "c"}
