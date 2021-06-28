@@ -18,7 +18,7 @@ import (
 )
 
 // TODO: The use of the word `digest` in variable and function names is inconsistently being used - need to make this more consistent
-// TODO: Write functionality to sync `cake` with the local system that's being manage externally to it
+// TODO: Write functionality to sync `cake` with the local system that's being managed externally to it
 // TODO: Think about how to deal with pruning containers and images with `cake` on RasbPi - should stopped containers also be deleted and have their images removed?
 
 type Cake struct {
