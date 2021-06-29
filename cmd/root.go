@@ -26,6 +26,7 @@ import (
 )
 
 var cfgFile string
+var imageName string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -36,7 +37,7 @@ It polls a container registry of your choice and automatically updates the runni
 server. You'll never have to login to your tiny server to update your running code.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	// Run: func(cmd *cobra.Command, args []string) { fmt.Println("Hello this is cake") },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -48,15 +49,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.cake.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&imageName, "image", "i", "", "[required] name of the image to manage (e.g. testrepo/image:tag) - cake currently only supports images in Docker Hub")
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cake.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.MarkPersistentFlagRequired("image")
 }
 
 // initConfig reads in config file and ENV variables if set.

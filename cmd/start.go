@@ -16,36 +16,28 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
+const registry string = "https://hub.docker.com"
+
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Start a caked image",
+	Long:  `Start running an image managed by cake. Any changes to the image in Docker Hub will automatically get updated where the corresponding image is running.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("start called")
+		splitImage := strings.Split(imageName, ":")
+		repo, tag := splitImage[0], splitImage[1]
+
+		cake := NewCake(repo, tag, registry)
+
+		cake.Run()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// startCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// startCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

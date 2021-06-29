@@ -1,4 +1,4 @@
-package lib
+package cmd
 
 import (
 	"context"
@@ -101,8 +101,11 @@ var stopContainer = func(cake *Cake, id string) {
 
 	_, errC := cake.DockerClient.ContainerWait(ctx, id, "removed")
 
-	if errC != nil {
+	select {
+	case err := <-errC:
 		panic(err)
+	default:
+		return
 	}
 }
 
@@ -182,13 +185,19 @@ var createContainer = func(client *dockerClient.Client, containerConfig containe
 		panic(err)
 	}
 
-	_, errC := client.ContainerWait(ctx, createdContainer.ID, "created")
+	statC, errC := client.ContainerWait(ctx, createdContainer.ID, "created")
 
-	if errC != nil {
-		panic(errC)
+	select {
+	case err := <-errC:
+		panic(err)
+	case stat := <-statC:
+		if stat.StatusCode == 0 {
+			return createdContainer.ID
+		} else {
+			ExitErr(ErrCreateContainer, fmt.Errorf(stat.Error.Message))
+			return ""
+		}
 	}
-
-	return createdContainer.ID
 }
 
 func (c *Cake) IsLatestDigestPulled() bool {
@@ -230,7 +239,7 @@ func (c *Cake) IsLatestDigestRunning() bool {
 func (c *Cake) GetLatestDigest(arch Arch) *Cake {
 	c.LastChecked = time.Now()
 
-	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2c/repositories/%s/tags?ordering=last_updated", c.Repo)
+	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", c.Repo)
 	images := getImageDigests(repoURL, arch)
 
 	sort.Sort(ByLastPushedDesc(images))
