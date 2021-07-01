@@ -185,6 +185,12 @@ var createContainer = func(client *dockerClient.Client, containerConfig containe
 		panic(err)
 	}
 
+	err = client.ContainerStart(ctx, createdContainer.ID, types.ContainerStartOptions{})
+
+	if err != nil {
+		panic(err)
+	}
+
 	statC, errC := client.ContainerWait(ctx, createdContainer.ID, "created")
 
 	select {
@@ -194,7 +200,7 @@ var createContainer = func(client *dockerClient.Client, containerConfig containe
 		if stat.StatusCode == 0 {
 			return createdContainer.ID
 		} else {
-			ExitErr(ErrCreateContainer, fmt.Errorf(stat.Error.Message))
+			ExitErr(ErrCreateContainer, fmt.Errorf("could not start container: exit code %d", stat.StatusCode))
 			return ""
 		}
 	}
