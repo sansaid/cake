@@ -1,0 +1,16 @@
+syntax = "proto3";
+package cake;
+
+option go_package = ".;cakepb";
+
+service Caked {
+    rpc StartContainer(Container) returns (Started) {} 
+} 
+
+message Container {
+    string id = 1;  
+}
+
+message Started {
+    bool started = 1;
+}
