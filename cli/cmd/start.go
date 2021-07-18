@@ -18,7 +18,9 @@ package cmd
 import (
 	"strings"
 
+	pb "github.com/sansaid/cake/pb"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 const registry string = "https://hub.docker.com"
@@ -35,6 +37,20 @@ var startCmd = &cobra.Command{
 		cake := NewCake(repo, tag, registry)
 
 		cake.Run()
+
+		var opts []grpc.DialOption
+
+		conn, err := grpc.Dial("localhost:6010", opts...)
+
+		if err != nil {
+			panic(err)
+		}
+
+		defer conn.Close()
+
+		client := pb.NewCakedClient(conn)
+
+		client.StartContainer()
 	},
 }
 
