@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -21,22 +20,6 @@ import (
 // TODO: Write functionality to sync `cake` with the local system that's being managed externally to it
 // TODO: Think about how to deal with pruning containers and images with `cake` on RasbPi - should stopped containers also be deleted and have their images removed?
 
-type Cake struct {
-	sync.Mutex
-	Repo               string
-	Tag                string
-	Registry           string
-	DockerClient       *dockerClient.Client
-	PreviousDigest     string
-	PreviousDigestTime time.Time
-	LatestDigest       string
-	LatestDigestTime   time.Time
-	LastChecked        time.Time
-	LastUpdated        time.Time
-	ContainersRunning  map[string]int
-	StopTimeout        time.Duration
-}
-
 type Arch string
 
 const (
@@ -44,30 +27,6 @@ const (
 	Amd64 Arch = "amd64"
 	Arm64 Arch = "arm64"
 )
-
-// NewCake - creates a new Config struct
-func NewCake(repo string, tag string, registry string) *Cake {
-	client, err := dockerClient.NewEnvClient()
-
-	if err != nil {
-		panic(err)
-	}
-
-	return &Cake{
-		Repo:               repo,
-		Tag:                tag,
-		Registry:           registry,
-		DockerClient:       client,
-		PreviousDigest:     "",
-		PreviousDigestTime: time.Time{},
-		LatestDigest:       "",
-		LatestDigestTime:   time.Time{},
-		LastChecked:        time.Time{},
-		LastUpdated:        time.Time{},
-		ContainersRunning:  map[string]int{},
-		StopTimeout:        time.Duration(30),
-	}
-}
 
 var listImages = func(client *dockerClient.Client) []types.ImageSummary {
 	imageList, err := client.ImageList(context.TODO(), types.ImageListOptions{})
@@ -90,7 +49,6 @@ var listContainers = func(client *dockerClient.Client) []types.Container {
 }
 
 var stopContainer = func(cake *Cake, id string) {
-	// TODO: fix the channel logic
 	ctx := context.TODO()
 
 	err := cake.DockerClient.ContainerStop(ctx, id, &cake.StopTimeout)

@@ -34,9 +34,7 @@ var startCmd = &cobra.Command{
 		splitImage := strings.Split(imageName, ":")
 		repo, tag := splitImage[0], splitImage[1]
 
-		cake := NewCake(repo, tag, registry)
-
-		cake.Run()
+		CreateContainer()
 
 		var opts []grpc.DialOption
 

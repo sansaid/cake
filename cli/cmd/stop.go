@@ -27,6 +27,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stop a caked image",
 	Long:  `Stop containers associated with this image. The container will no longer run and you will no longer receive updates from Docker Hub.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO: Create a gRPC method for stop
 		fmt.Printf("Cake stopped!")
 	},
 }

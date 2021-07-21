@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
+	dockerClient "github.com/docker/docker/client"
 	pb "github.com/sansaid/cake/pb"
 	"google.golang.org/grpc"
 )
@@ -16,16 +18,45 @@ const (
 	port = 6010
 )
 
-type cakedServer struct {
+type Cake struct {
 	pb.UnimplementedCakedServer
+	DockerClient      *dockerClient.Client
+	ContainersRunning map[string]int
+	StopTimeout       time.Duration
 }
 
 // This should only get called by the gRPC client (should never be called directly in this code)
-// TODO: ^^confirm the above is correct
-func (c *cakedServer) StartContainer(ctx context.Context, container *pb.Container) (*pb.Started, error) {
+func (c *Cake) StartContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
 	fmt.Printf("starting container: %#v", container)
 
-	return &pb.Started{Started: true}, nil
+	return &pb.ContainerStatus{
+		Status:      0,
+		ContainerId: "ABC123",
+		Message:     "Container successfully started",
+	}, nil
+}
+
+func (c *Cake) StopContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
+	fmt.Printf("stopping container: %#v", container)
+
+	return &pb.ContainerStatus{
+		Status:      0,
+		ContainerId: "ABC123",
+		Message:     "Container successfully stopped",
+	}, nil
+}
+
+func NewCake() *Cake {
+	client, err := dockerClient.NewEnvClient()
+
+	if err != nil {
+		panic(err)
+	}
+
+	return &Cake{
+		DockerClient: client,
+		StopTimeout:  30 * time.Second,
+	}
 }
 
 func main() {
@@ -41,7 +72,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(opts...)
 
-	pb.RegisterCakedServer(grpcServer, &cakedServer{})
+	pb.RegisterCakedServer(grpcServer, NewCake())
 
 	grpcServer.Serve(lis)
 }
