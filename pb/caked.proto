@@ -4,7 +4,8 @@ package cake;
 option go_package = ".;cakepb";
 
 service Caked {
-    rpc StartContainer(Container) returns (Started) {} 
+    rpc StartContainer(Container) returns (ContainerStatus) {}
+    rpc StopContainer(Container) returns (ContainerStatus) {}
 } 
 
 message Container {
@@ -19,6 +20,8 @@ message Container {
     int64 LastUpdated = 9;
 }
 
-message Started {
-    bool started = 1;
+message ContainerStatus {
+    int32 Status = 1;
+    string ContainerId = 2;
+    string Message = 3;
 }

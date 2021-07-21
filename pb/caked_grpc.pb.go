@@ -18,7 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CakedClient interface {
-	StartContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*Started, error)
+	StartContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*ContainerStatus, error)
+	StopContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*ContainerStatus, error)
 }
 
 type cakedClient struct {
@@ -29,9 +30,18 @@ func NewCakedClient(cc grpc.ClientConnInterface) CakedClient {
 	return &cakedClient{cc}
 }
 
-func (c *cakedClient) StartContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*Started, error) {
-	out := new(Started)
+func (c *cakedClient) StartContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*ContainerStatus, error) {
+	out := new(ContainerStatus)
 	err := c.cc.Invoke(ctx, "/cake.Caked/StartContainer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cakedClient) StopContainer(ctx context.Context, in *Container, opts ...grpc.CallOption) (*ContainerStatus, error) {
+	out := new(ContainerStatus)
+	err := c.cc.Invoke(ctx, "/cake.Caked/StopContainer", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +52,8 @@ func (c *cakedClient) StartContainer(ctx context.Context, in *Container, opts ..
 // All implementations must embed UnimplementedCakedServer
 // for forward compatibility
 type CakedServer interface {
-	StartContainer(context.Context, *Container) (*Started, error)
+	StartContainer(context.Context, *Container) (*ContainerStatus, error)
+	StopContainer(context.Context, *Container) (*ContainerStatus, error)
 	mustEmbedUnimplementedCakedServer()
 }
 
@@ -50,8 +61,11 @@ type CakedServer interface {
 type UnimplementedCakedServer struct {
 }
 
-func (UnimplementedCakedServer) StartContainer(context.Context, *Container) (*Started, error) {
+func (UnimplementedCakedServer) StartContainer(context.Context, *Container) (*ContainerStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartContainer not implemented")
+}
+func (UnimplementedCakedServer) StopContainer(context.Context, *Container) (*ContainerStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopContainer not implemented")
 }
 func (UnimplementedCakedServer) mustEmbedUnimplementedCakedServer() {}
 
@@ -84,6 +98,24 @@ func _Caked_StartContainer_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Caked_StopContainer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Container)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CakedServer).StopContainer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cake.Caked/StopContainer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CakedServer).StopContainer(ctx, req.(*Container))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Caked_ServiceDesc is the grpc.ServiceDesc for Caked service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -94,6 +126,10 @@ var Caked_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartContainer",
 			Handler:    _Caked_StartContainer_Handler,
+		},
+		{
+			MethodName: "StopContainer",
+			Handler:    _Caked_StopContainer_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
