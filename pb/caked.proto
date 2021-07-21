@@ -8,7 +8,15 @@ service Caked {
 } 
 
 message Container {
-    string id = 1;  
+    string Repo = 1;
+    string Tag = 2;
+    string Registry = 3;
+    string PreviousDigest = 4;
+    int64 PreviousDigestTime = 5;
+    string LatestDigest = 6;
+    int64 LatestDigestTime = 7;
+    int64 LastChecked = 8;
+    int64 LastUpdated = 9;
 }
 
 message Started {
