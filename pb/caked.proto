@@ -9,7 +9,7 @@ service Caked {
 } 
 
 message Container {
-    string Repo = 1;
+    string ImageName = 1;
     string Tag = 2;
     string Registry = 3;
     string PreviousDigest = 4;

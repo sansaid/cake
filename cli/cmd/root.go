@@ -25,8 +25,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-var imageName string
+var CfgFile string
+var Image string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -49,17 +49,17 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.cake.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&imageName, "image", "i", "", "[required] name of the image to manage (e.g. testrepo/image:tag) - cake currently only supports images in Docker Hub")
+	rootCmd.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "config file (default is $HOME/.cake.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&Image, "image", "i", "", "[required] name of the image to manage (e.g. repo/image:tag) - cake currently only supports images in Docker Hub")
 
 	rootCmd.MarkPersistentFlagRequired("image")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" {
+	if CfgFile != "" {
 		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		viper.SetConfigFile(CfgFile)
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()

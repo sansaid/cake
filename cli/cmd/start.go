@@ -16,14 +16,33 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+	"log"
 	"strings"
 
 	pb "github.com/sansaid/cake/pb"
+	"github.com/sansaid/cake/utils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
 
-const registry string = "https://hub.docker.com"
+func NewContainer(image string) *pb.Container {
+	registry := "https://hub.docker.com"
+
+	splitImage := strings.Split(Image, ":")
+
+	if len(splitImage) != 2 {
+		log.Fatalf("Image must be of the foramt <repo>/<image>:<tag>")
+	}
+
+	repo, tag := splitImage[0], splitImage[1]
+
+	return &pb.Container{
+		ImageName: repo,
+		Tag:       tag,
+		Registry:  registry,
+	}
+}
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
@@ -31,24 +50,17 @@ var startCmd = &cobra.Command{
 	Short: "Start a caked image",
 	Long:  `Start running an image managed by cake. Any changes to the image in Docker Hub will automatically get updated where the corresponding image is running.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		splitImage := strings.Split(imageName, ":")
-		repo, tag := splitImage[0], splitImage[1]
-
-		CreateContainer()
-
 		var opts []grpc.DialOption
 
 		conn, err := grpc.Dial("localhost:6010", opts...)
-
-		if err != nil {
-			panic(err)
-		}
-
 		defer conn.Close()
 
+		utils.Check(err, "Cannot initialise gRPC dial")
+
+		container := NewContainer(Image)
 		client := pb.NewCakedClient(conn)
 
-		client.StartContainer()
+		client.StartContainer(context.Background(), container)
 	},
 }
 
