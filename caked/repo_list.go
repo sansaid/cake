@@ -1,4 +1,4 @@
-package cmd
+package main
 
 type RepoList struct {
 	Count    int            `json:"count"`
