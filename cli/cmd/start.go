@@ -47,7 +47,7 @@ func NewContainer(image string) *pb.Container {
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start a caked image",
+	Short: "Start a cake image",
 	Long:  `Start running an image managed by cake. Any changes to the image in Docker Hub will automatically get updated where the corresponding image is running.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var opts []grpc.DialOption

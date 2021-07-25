@@ -27,7 +27,7 @@ import (
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop a caked image",
+	Short: "Stop a cake image",
 	Long:  `Stop containers associated with this image. The container will no longer run and you will no longer receive updates from Docker Hub.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var opts []grpc.DialOption
