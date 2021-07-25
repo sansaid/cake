@@ -12,7 +12,7 @@ import (
 )
 
 func NewContainer(image string) *pb.Container {
-	registry := "https://hub.docker.com"
+	registry := "https://registry.hub.docker.com"
 
 	splitImage := strings.Split(Image, ":")
 
@@ -20,12 +20,14 @@ func NewContainer(image string) *pb.Container {
 		log.Fatalf("Image must be of the foramt <repo>/<image>:<tag>")
 	}
 
-	repo, tag := splitImage[0], splitImage[1]
+	imageName, tag := splitImage[0], splitImage[1]
 
 	return &pb.Container{
-		ImageName: repo,
-		Tag:       tag,
-		Registry:  registry,
+		ImageName:    imageName,
+		Tag:          tag,
+		Registry:     registry,
+		Architecture: "amd64",
+		OS:           "linux",
 	}
 }
 

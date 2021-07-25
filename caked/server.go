@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	dockerClient "github.com/docker/docker/client"
@@ -18,10 +18,15 @@ const port = 6010
 
 var Registry string
 
+type ContainerList struct {
+	sync.RWMutex
+	containers map[string]int
+}
+
 type Cake struct {
 	pb.UnimplementedCakedServer
 	DockerClient      *dockerClient.Client
-	ContainersRunning map[string]int
+	ContainersRunning ContainerList
 	StopTimeout       time.Duration
 }
 
@@ -61,28 +66,6 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
-}
-
-// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) StartContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
-	fmt.Printf("starting container: %#v", container)
-
-	return &pb.ContainerStatus{
-		Status:      0,
-		ContainerId: "ABC123",
-		Message:     "Container successfully started",
-	}, nil
-}
-
-// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) StopContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
-	fmt.Printf("stopping container: %#v", container)
-
-	return &pb.ContainerStatus{
-		Status:      0,
-		ContainerId: "ABC123",
-		Message:     "Container successfully stopped",
-	}, nil
 }
 
 func main() {

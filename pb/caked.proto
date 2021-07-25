@@ -18,6 +18,8 @@ message Container {
     int64 LatestDigestTime = 7;
     int64 LastChecked = 8;
     int64 LastUpdated = 9;
+    string Architecture = 10;
+    string OS = 11;
 }
 
 message ContainerStatus {

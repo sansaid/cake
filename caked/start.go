@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -23,6 +25,17 @@ func NewCake() *Cake {
 		DockerClient: client,
 		StopTimeout:  30 * time.Second,
 	}
+}
+
+// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
+func (c *Cake) StartContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
+	log.Printf("Starting container for image %s with tag %s", container.ImageName, container.Tag)
+
+	return &pb.ContainerStatus{
+		Status:      0,
+		ContainerId: "ABC123",
+		Message:     "Container successfully started",
+	}, nil
 }
 
 // startCmd represents the start command
