@@ -3,12 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
-	"time"
 
-	dockerClient "github.com/docker/docker/client"
 	homedir "github.com/mitchellh/go-homedir"
-	pb "github.com/sansaid/cake/pb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -17,18 +13,6 @@ import (
 const port = 6010
 
 var Registry string
-
-type ContainerList struct {
-	sync.RWMutex
-	containers map[string]int
-}
-
-type Cake struct {
-	pb.UnimplementedCakedServer
-	DockerClient      *dockerClient.Client
-	ContainersRunning ContainerList
-	StopTimeout       time.Duration
-}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

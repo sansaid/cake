@@ -107,15 +107,20 @@ var createContainer = func(client *dockerClient.Client, cakeContainer *pb.Contai
 	}
 }
 
-var decodeResponse = func(url string, t interface{}) interface{} {
-	resp, err := http.Get(url)
-	defer resp.Body.Close()
+func (c *Cake) Get(url string, t interface{}) interface{} {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	defer req.Body.Close()
 
 	utils.Check(err, fmt.Sprintf("Could not perform get request on %s", url))
 
+	resp, err := c.HttpClient.Do(req)
+	defer resp.Body.Close()
+
+	utils.Check(err, fmt.Sprintf("Could not read request response from %s", url))
+
 	err = json.NewDecoder(resp.Body).Decode(t)
 
-	utils.Check(err, fmt.Sprintf("Could not decode JSON", url))
+	utils.Check(err, fmt.Sprintf("Could not decode JSON from URL %s", url))
 
 	return t
 }
@@ -209,7 +214,7 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 		id := createContainer(c.DockerClient, cakeContainer, containerConfig, hostConfig, networkConfig)
 
 		c.ContainersRunning.Lock()
-		c.ContainersRunning.containers[id] = 0
+		c.ContainersRunning.containers[id] = struct{}{}
 		c.ContainersRunning.Unlock()
 	} else {
 		runningContainers := getRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.LatestDigest)
@@ -223,7 +228,7 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 
 			if !(managedByCake) {
 				c.ContainersRunning.Lock()
-				c.ContainersRunning.containers[id] = 0
+				c.ContainersRunning.containers[id] = struct{}{}
 				c.ContainersRunning.Unlock()
 			}
 		}

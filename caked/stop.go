@@ -1,34 +1,25 @@
 package main
 
-import (
-	"context"
-	"fmt"
+// TODO: The use of the word `digest` in variable and function names is inconsistently being used - need to make this more consistent
+// TODO: Write functionality to sync `cake` with the local system that's being managed externally to it
+// TODO: Think about how to deal with pruning containers and images with `cake` on RasbPi - should stopped containers also be deleted and have their images removed?
 
-	pb "github.com/sansaid/cake/pb"
-	"github.com/spf13/cobra"
-)
-
-// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) StopContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
-	fmt.Printf("stopping container: %#v", container)
-
-	return &pb.ContainerStatus{
-		Status:      0,
-		ContainerId: "ABC123",
-		Message:     "Container successfully stopped",
-	}, nil
+var closeClient = func(c *Cake) {
+	c.DockerClient.Close()
 }
 
-// stopCmd represents the stop command
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop caked",
-	Long:  `Stop the cake daemon gracefully`,
-	Run: func(cmd *cobra.Command, args []string) {
-		grpcServer.GracefulStop()
-	},
-}
+// Stop - stop this instance of cake and remove all managed containers
+func (c *Cake) Stop() {
+	defer closeClient(c)
 
-func init() {
-	rootCmd.AddCommand(stopCmd)
+	c.ContainersRunning.Lock()
+	for id, _ := range c.ContainersRunning.containers {
+		stopContainer(c, id)
+		_, exists := c.ContainersRunning.containers[id]
+
+		if exists {
+			delete(c.ContainersRunning.containers, id)
+		}
+	}
+	c.ContainersRunning.Unlock()
 }

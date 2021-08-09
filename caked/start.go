@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"time"
 
-	dockerClient "github.com/docker/docker/client"
 	pb "github.com/sansaid/cake/pb"
 	"github.com/sansaid/cake/utils"
 	"github.com/spf13/cobra"
@@ -15,17 +13,6 @@ import (
 )
 
 var grpcServer *grpc.Server
-
-func NewCake() *Cake {
-	client, err := dockerClient.NewEnvClient()
-
-	utils.Check(err, "Cannot create cake client")
-
-	return &Cake{
-		DockerClient: client,
-		StopTimeout:  30 * time.Second,
-	}
-}
 
 // gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
 func (c *Cake) StartContainer(ctx context.Context, container *pb.Container) (*pb.ContainerStatus, error) {
