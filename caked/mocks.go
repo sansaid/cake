@@ -58,10 +58,10 @@ func (m *MockDockerClient) ContainerWait(ctx context.Context, containerID string
 }
 
 // ------- MockCake -------
-func MockNewCake() *Cake {
+func NewMockCake() *Cake {
 	return &Cake{
 		DockerClient: &MockDockerClient{},
 		StopTimeout:  30 * time.Second,
-		HttpClient: ,
+		HttpClient:   &MockHttpClient{},
 	}
 }
