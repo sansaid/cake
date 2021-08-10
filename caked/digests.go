@@ -11,32 +11,15 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	dockerClient "github.com/docker/docker/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	pb "github.com/sansaid/cake/pb"
 	"github.com/sansaid/cake/utils"
 )
 
-// Private functions are declared with vars to allow for stubbing in tests - most of these functions are not unit testable because they're side effect heavy
-var getImageDigests = func(repoURL string, arch string) []Image {
-	// TODO: see if filter for architecture can be done through REST API
-	repoList := RepoList{}
-	decodeResponse(repoURL, &repoList)
+func (c *Cake) ListRunningContainerIds(client ModContainerAPIClient, image string, digest string) []string {
+	containerList, err := client.ContainerList(context.TODO(), types.ContainerListOptions{All: false})
 
-	archImages := []Image{}
-	images := repoList.Results[0].Images
-
-	for _, image := range images {
-		if image.Architecture == string(arch) {
-			archImages = append(archImages, image)
-		}
-	}
-
-	return archImages
-}
-
-var getRunningContainerIds = func(client *dockerClient.Client, image string, digest string) []string {
-	containerList := listRunningContainers(client)
+	utils.Check(err, "Could not list running containers")
 
 	imageName := fmt.Sprintf("%s@%s", image, digest)
 	containerIds := []string{}
@@ -50,32 +33,7 @@ var getRunningContainerIds = func(client *dockerClient.Client, image string, dig
 	return containerIds
 }
 
-var pullImage = func(client *dockerClient.Client, imageRef string) {
-	reader, err := client.ImagePull(context.TODO(), imageRef, types.ImagePullOptions{})
-	defer reader.Close()
-
-	utils.Check(err, "Could not pull image")
-}
-
-var listImages = func(client *dockerClient.Client) []types.ImageSummary {
-	imageList, err := client.ImageList(context.TODO(), types.ImageListOptions{})
-
-	if err != nil {
-		panic(err)
-	}
-
-	return imageList
-}
-
-var listRunningContainers = func(client *dockerClient.Client) []types.Container {
-	containerList, err := client.ContainerList(context.TODO(), types.ContainerListOptions{All: false})
-
-	utils.Check(err, "Could not list running containers")
-
-	return containerList
-}
-
-var createContainer = func(client *dockerClient.Client, cakeContainer *pb.Container, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) string {
+func (c *Cake) CreateContainer(client ModContainerAPIClient, cakeContainer *pb.Container, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) string {
 	ctx := context.TODO()
 
 	platform := &specs.Platform{
@@ -130,12 +88,23 @@ func (c *Cake) GetLatestDigest(cakeContainer *pb.Container) *Cake {
 	cakeContainer.LastChecked = time.Now().Unix()
 
 	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", cakeContainer.ImageName)
-	images := getImageDigests(repoURL, cakeContainer.Architecture)
+
+	repoList := RepoList{}
+	c.Get(repoURL, &repoList)
+
+	archImages := []Image{}
+	images := repoList.Results[0].Images
+
+	for _, image := range images {
+		if image.Architecture == string(cakeContainer.Architecture) {
+			archImages = append(archImages, image)
+		}
+	}
 
 	sort.Sort(ByLastPushedDesc(images))
 
-	imageLatestDigest := images[0].Digest
-	imageLastPushedTime := images[0].LastPushed
+	imageLatestDigest := archImages[0].Digest
+	imageLastPushedTime := archImages[0].LastPushed
 
 	containerLatestDigestTime := time.Unix(cakeContainer.LatestDigestTime, 0)
 
@@ -152,12 +121,29 @@ func (c *Cake) GetLatestDigest(cakeContainer *pb.Container) *Cake {
 	return c
 }
 
+func (c *Cake) stopContainer(id string) {
+	ctx := context.TODO()
+
+	err := c.DockerClient.ContainerStop(ctx, id, &c.StopTimeout)
+
+	utils.Check(err, "Could not issue stop to container")
+
+	_, errC := c.DockerClient.ContainerWait(ctx, id, "removed")
+
+	select {
+	case err := <-errC:
+		utils.Check(err, "Error waiting for container to be removed")
+	default:
+		return
+	}
+}
+
 func (c *Cake) StopPreviousDigest(cakeContainer *pb.Container) {
 	if cakeContainer.PreviousDigest != "" {
-		containerIds := getRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.PreviousDigest)
+		containerIds := c.ListRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.PreviousDigest)
 
 		for _, id := range containerIds {
-			stopContainer(c, id)
+			c.stopContainer(id)
 
 			c.ContainersRunning.RLock()
 			_, exists := c.ContainersRunning.containers[id]
@@ -176,12 +162,19 @@ func (c *Cake) PullLatestDigest(cakeContainer *pb.Container) {
 	if !(c.IsLatestDigestPulled(cakeContainer)) {
 		imageRef := fmt.Sprintf("%s@%s", cakeContainer.ImageName, cakeContainer.LatestDigest)
 
-		pullImage(c.DockerClient, imageRef)
+		reader, err := c.DockerClient.ImagePull(context.TODO(), imageRef, types.ImagePullOptions{})
+		defer reader.Close()
+
+		utils.Check(err, "Could not pull image")
 	}
 }
 
 func (c *Cake) IsLatestDigestPulled(cakeContainer *pb.Container) bool {
-	imageList := listImages(c.DockerClient)
+	imageList, err := c.DockerClient.ImageList(context.TODO(), types.ImageListOptions{})
+
+	if err != nil {
+		panic(err)
+	}
 
 	latestImageName := fmt.Sprintf("%s@%s", cakeContainer.ImageName, cakeContainer.LatestDigest)
 
@@ -211,13 +204,13 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 		hostConfig := container.HostConfig{}
 		networkConfig := network.NetworkingConfig{}
 
-		id := createContainer(c.DockerClient, cakeContainer, containerConfig, hostConfig, networkConfig)
+		id := c.CreateContainer(c.DockerClient, cakeContainer, containerConfig, hostConfig, networkConfig)
 
 		c.ContainersRunning.Lock()
 		c.ContainersRunning.containers[id] = struct{}{}
 		c.ContainersRunning.Unlock()
 	} else {
-		runningContainers := getRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.LatestDigest)
+		runningContainers := c.ListRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.LatestDigest)
 
 		// Checks if the container is in Cake's control. If it's not,
 		// Cake adds it to its list of running containers.
@@ -236,7 +229,9 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 }
 
 func (c *Cake) IsLatestDigestRunning(cakeContainer *pb.Container) bool {
-	containerList := listRunningContainers(c.DockerClient)
+	containerList, err := c.DockerClient.ContainerList(context.TODO(), types.ContainerListOptions{All: false})
+
+	utils.Check(err, "Could not list running containers")
 
 	latestImageName := fmt.Sprintf("%s@%s", cakeContainer.ImageName, cakeContainer.LatestDigest)
 

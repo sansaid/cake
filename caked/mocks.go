@@ -27,7 +27,7 @@ func (m *MockReadCloser) Close() error {
 type MockHttpClient struct{}
 
 func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
-	return http.Response{}, nil
+	return &http.Response{}, nil
 }
 
 // ------- MockDockerClient -------

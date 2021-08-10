@@ -14,7 +14,7 @@ func (c *Cake) Stop() {
 
 	c.ContainersRunning.Lock()
 	for id, _ := range c.ContainersRunning.containers {
-		stopContainer(c, id)
+		c.stopContainer(id)
 		_, exists := c.ContainersRunning.containers[id]
 
 		if exists {
