@@ -28,3 +28,5 @@ Both components are required for `cake` to run.
 ### caked
 
 `caked` is a daemon that runs the core part of `cake`'s logic. `caked` and `cake-cli` talk to each other using gRPC.
+
+.
