@@ -18,6 +18,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.0
+	github.com/stretchr/testify v1.6.1
 	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/grpc v1.36.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0 // indirect

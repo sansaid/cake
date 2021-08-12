@@ -15,8 +15,17 @@ type ResultMap struct {
 	expect string
 }
 
-func log(t *testing.T, result interface{}, expect interface{}) {
+func Log(t *testing.T, result interface{}, expect interface{}) {
 	t.Logf("Expected %v, got %v", expect, result)
+}
+
+func TestListRunningContainerIds_OK(t *testing.T) {
+	mockCake := NewMockCake()
+
+	// TODO: implement some setup code --- https://github.com/stretchr/testify
+	mockCake.HttpClient.On("Do")
+
+	mockCake.ListRunningContainerIds()
 }
 
 // Test when latest digest is pulled
@@ -48,7 +57,7 @@ func TestIsLatestDigestPulled_OK(t *testing.T) {
 	expect := true
 
 	if result != expect {
-		log(t, result, expect)
+		Log(t, result, expect)
 		t.Fail()
 	}
 }
@@ -82,7 +91,7 @@ func TestIsLatestDigestPulled_Bad(t *testing.T) {
 	expect := false
 
 	if result != expect {
-		log(t, result, expect)
+		Log(t, result, expect)
 		t.Fail()
 	}
 }
@@ -116,7 +125,7 @@ func TestIsLatestDigestRunning_OK(t *testing.T) {
 	expect := true
 
 	if result != expect {
-		log(t, result, expect)
+		Log(t, result, expect)
 		t.Fail()
 	}
 }
@@ -150,7 +159,7 @@ func TestIsLatestDigestRunning_Bad(t *testing.T) {
 	expect := false
 
 	if result != expect {
-		log(t, result, expect)
+		Log(t, result, expect)
 		t.Fail()
 	}
 }
@@ -200,7 +209,7 @@ func TestGetLatestDigest_LatestNotListed(t *testing.T) {
 
 	for _, r := range results {
 		if r.result != r.expect {
-			log(t, r.result, r.expect)
+			Log(t, r.result, r.expect)
 			t.Fail()
 		}
 	}
@@ -211,7 +220,7 @@ func TestGetLatestDigest_LatestNotListed(t *testing.T) {
 	}
 
 	if cake.LastUpdated != old_last_updated {
-		log(t, old_last_updated, cake.LastUpdated)
+		Log(t, old_last_updated, cake.LastUpdated)
 		t.Fail()
 	}
 }
@@ -261,7 +270,7 @@ func TestGetLatestDigest_CurrLatestIsLatest(t *testing.T) {
 
 	for _, r := range results {
 		if r.result != r.expect {
-			log(t, r.result, r.expect)
+			Log(t, r.result, r.expect)
 			t.Fail()
 		}
 	}
@@ -272,7 +281,7 @@ func TestGetLatestDigest_CurrLatestIsLatest(t *testing.T) {
 	}
 
 	if cake.LastUpdated != old_last_updated {
-		log(t, old_last_updated, cake.LastUpdated)
+		Log(t, old_last_updated, cake.LastUpdated)
 		t.Fail()
 	}
 }
@@ -329,7 +338,7 @@ func TestGetLatestDigest_CurrLatestIsNotLatest(t *testing.T) {
 
 	for _, r := range results {
 		if r.result != r.expect {
-			log(t, r.result, r.expect)
+			Log(t, r.result, r.expect)
 			t.Fail()
 		}
 	}
@@ -381,7 +390,7 @@ func TestStopPreviousDigest_NoPreviouDigest(t *testing.T) {
 	}
 
 	if containerStopped != "" {
-		log(t, containerStopped, "")
+		Log(t, containerStopped, "")
 		t.Fail()
 	}
 }
@@ -423,7 +432,7 @@ func TestStopPreviousDigest_PreviouDigestNotRunning(t *testing.T) {
 	}
 
 	if containerStopped != "" {
-		log(t, containerStopped, "")
+		Log(t, containerStopped, "")
 		t.Fail()
 	}
 }
@@ -465,7 +474,7 @@ func TestStopPreviousDigest_PreviouDigestIsRunning(t *testing.T) {
 	}
 
 	if len(containerStopped) != 2 {
-		log(t, containerStopped, []string{"a", "c"})
+		Log(t, containerStopped, []string{"a", "c"})
 		t.Fail()
 	}
 }
@@ -494,7 +503,7 @@ func TestPullLatestDigest_Pulled(t *testing.T) {
 	cake.PullLatestDigest()
 
 	if pulledImage != "" {
-		log(t, pulledImage, "")
+		Log(t, pulledImage, "")
 		t.Fail()
 	}
 }
@@ -519,7 +528,7 @@ func TestPullLatestDigest_NotPulled(t *testing.T) {
 	cake.PullLatestDigest()
 
 	if pulledImage != "TestRepo@TestLatestDigest" {
-		log(t, pulledImage, "")
+		Log(t, pulledImage, "")
 		t.Fail()
 	}
 }
@@ -609,7 +618,7 @@ func TestRunLatestDigest_NotRunningNotControlled(t *testing.T) {
 	cake.RunLatestDigest()
 
 	if _, ok := cake.ContainersRunning[expectedContainer]; !(ok) {
-		log(t, cake.ContainersRunning, map[string]int{expectedContainer: 0})
+		Log(t, cake.ContainersRunning, map[string]int{expectedContainer: 0})
 		t.Fail()
 	}
 }
