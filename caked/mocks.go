@@ -78,10 +78,10 @@ func (m *MockDockerClient) Close() error {
 }
 
 // ------- MockCake -------
-func NewMockCake() *Cake {
+func NewCakeWithMocks(mockDockerClient ModContainerAPIClient, mockHttpClient ModHTTPClient) *Cake {
 	return &Cake{
-		DockerClient: new(MockDockerClient),
+		DockerClient: mockDockerClient,
 		StopTimeout:  30 * time.Second,
-		HttpClient:   new(MockHttpClient),
+		HttpClient:   mockHttpClient,
 	}
 }

@@ -31,16 +31,31 @@ type Cake struct {
 	StopTimeout       time.Duration
 }
 
-func NewCake() *Cake {
-	client, err := dockerClient.NewEnvClient()
+type CakeOpts func(*Cake)
+
+// has type CakeOpts
+func WithStopTimeout(duration time.Duration) CakeOpts {
+	return func(c *Cake) {
+		c.StopTimeout = duration
+	}
+}
+
+func NewCake(opts ...CakeOpts) *Cake {
+	client, err := dockerClient.NewClientWithOpts()
 
 	utils.Check(err, "Cannot create cake client")
 
-	return &Cake{
+	cake := &Cake{
 		DockerClient: client,
 		HttpClient:   &http.Client{Timeout: time.Second * 3},
 		StopTimeout:  30 * time.Second,
 	}
+
+	for _, opt := range opts {
+		opt(cake)
+	}
+
+	return cake
 }
 
 func (c *Cake) ListRunningContainerIds(image string, digest string) []string {
@@ -167,7 +182,7 @@ func (c *Cake) stopContainer(id string) {
 
 func (c *Cake) StopPreviousDigest(cakeContainer *pb.Container) {
 	if cakeContainer.PreviousDigest != "" {
-		containerIds := c.ListRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.PreviousDigest)
+		containerIds := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.PreviousDigest)
 
 		for _, id := range containerIds {
 			c.stopContainer(id)
@@ -237,7 +252,7 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 		c.ContainersRunning.containers[id] = struct{}{}
 		c.ContainersRunning.Unlock()
 	} else {
-		runningContainers := c.ListRunningContainerIds(c.DockerClient, cakeContainer.ImageName, cakeContainer.LatestDigest)
+		runningContainers := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.LatestDigest)
 
 		// Checks if the container is in Cake's control. If it's not,
 		// Cake adds it to its list of running containers.
