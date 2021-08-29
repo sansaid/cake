@@ -59,10 +59,18 @@ func (m *MockDockerClient) ContainerStart(ctx context.Context, containerID strin
 	return args.Error(0)
 }
 
+// Repurposing return inputs to be the inputs to the mock's channels
 func (m *MockDockerClient) ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
 	args := m.Called(ctx, containerID, condition)
 
-	return args.Get(0).(<-chan container.ContainerWaitOKBody), args.Get(1).(<-chan error)
+	waitBodyChan := args.Get(0).(chan container.ContainerWaitOKBody)
+	errChan := args.Get(1).(chan error)
+
+	go func() {
+		waitBodyChan <- container.ContainerWaitOKBody{StatusCode: 0}
+	}()
+
+	return waitBodyChan, errChan
 }
 
 func (m *MockDockerClient) ContainerStop(ctx context.Context, containerID string, timeout *time.Duration) error {

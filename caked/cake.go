@@ -16,6 +16,7 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	pb "github.com/sansaid/cake/pb"
 	"github.com/sansaid/cake/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 type ContainerList struct {
@@ -58,10 +59,12 @@ func NewCake(opts ...CakeOpts) *Cake {
 	return cake
 }
 
-func (c *Cake) ListRunningContainerIds(image string, digest string) []string {
+func (c *Cake) ListRunningContainerIds(image string, digest string) ([]string, error) {
 	containerList, err := c.DockerClient.ContainerList(context.TODO(), types.ContainerListOptions{All: false})
 
-	utils.Check(err, "Could not list running containers")
+	if err != nil {
+		return []string{}, err
+	}
 
 	imageName := fmt.Sprintf("%s@%s", image, digest)
 	containerIds := []string{}
@@ -72,26 +75,34 @@ func (c *Cake) ListRunningContainerIds(image string, digest string) []string {
 		}
 	}
 
-	return containerIds
+	return containerIds, nil
 }
 
-func (c *Cake) CreateContainer(client ModContainerAPIClient, cakeContainer *pb.Container, containerConfig container.Config, hostConfig container.HostConfig, networkConfig network.NetworkingConfig) string {
+// Untested
+func (c *Cake) CreateContainer(cakeContainer *pb.Container) string {
 	ctx := context.TODO()
+	hostConfig := container.HostConfig{}
+	networkConfig := network.NetworkingConfig{}
 
-	platform := &specs.Platform{
+	platformSpecs := &specs.Platform{
 		Architecture: cakeContainer.Architecture,
 		OS:           cakeContainer.OS,
 	}
 
-	createdContainer, err := client.ContainerCreate(ctx, &containerConfig, &hostConfig, &networkConfig, platform, "")
+	containerConfig := container.Config{
+		Image: fmt.Sprintf("%s@%s", cakeContainer.ImageName, cakeContainer.LatestDigest),
+	}
+
+	createdContainer, err := c.DockerClient.ContainerCreate(ctx, &containerConfig, &hostConfig, &networkConfig, platformSpecs, "")
 
 	utils.Check(err, "Could not create container")
 
-	err = client.ContainerStart(ctx, createdContainer.ID, types.ContainerStartOptions{})
+	err = c.DockerClient.ContainerStart(ctx, createdContainer.ID, types.ContainerStartOptions{})
 
 	utils.Check(err, "Could not start container")
 
-	statC, errC := client.ContainerWait(ctx, createdContainer.ID, "created")
+	// Testing the unhappy path of this method call isn't possible, so only the happy path will be tested
+	statC, errC := c.DockerClient.ContainerWait(ctx, createdContainer.ID, container.WaitConditionNotRunning)
 
 	select {
 	case err := <-errC:
@@ -107,9 +118,10 @@ func (c *Cake) CreateContainer(client ModContainerAPIClient, cakeContainer *pb.C
 	}
 }
 
+// Untested
 func (c *Cake) Get(url string, t interface{}) interface{} {
+	// Cannot test unhappy path, only happy path
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-	defer req.Body.Close()
 
 	utils.Check(err, fmt.Sprintf("Could not perform get request on %s", url))
 
@@ -118,6 +130,7 @@ func (c *Cake) Get(url string, t interface{}) interface{} {
 
 	utils.Check(err, fmt.Sprintf("Could not read request response from %s", url))
 
+	// Could not test unhappy path, only happy path
 	err = json.NewDecoder(resp.Body).Decode(t)
 
 	utils.Check(err, fmt.Sprintf("Could not decode JSON from URL %s", url))
@@ -180,9 +193,13 @@ func (c *Cake) stopContainer(id string) {
 	}
 }
 
-func (c *Cake) StopPreviousDigest(cakeContainer *pb.Container) {
+func (c *Cake) StopPreviousDigest(cakeContainer *pb.Container) error {
 	if cakeContainer.PreviousDigest != "" {
-		containerIds := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.PreviousDigest)
+		containerIds, err := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.PreviousDigest)
+
+		if err != nil {
+			return fmt.Errorf("Could not stop container. Error in listing containers: %w", err)
+		}
 
 		for _, id := range containerIds {
 			c.stopContainer(id)
@@ -198,6 +215,8 @@ func (c *Cake) StopPreviousDigest(cakeContainer *pb.Container) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (c *Cake) PullLatestDigest(cakeContainer *pb.Container) {
@@ -237,22 +256,22 @@ func (c *Cake) IsLatestDigestPulled(cakeContainer *pb.Container) bool {
 	return false
 }
 
-func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
+func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) error {
 	if !(c.IsLatestDigestRunning(cakeContainer)) {
-		containerConfig := container.Config{
-			Image: fmt.Sprintf("%s@%s", cakeContainer.ImageName, cakeContainer.LatestDigest),
-		}
-
-		hostConfig := container.HostConfig{}
-		networkConfig := network.NetworkingConfig{}
-
-		id := c.CreateContainer(c.DockerClient, cakeContainer, containerConfig, hostConfig, networkConfig)
+		id := c.CreateContainer(cakeContainer)
 
 		c.ContainersRunning.Lock()
 		c.ContainersRunning.containers[id] = struct{}{}
 		c.ContainersRunning.Unlock()
+
+		return nil
 	} else {
-		runningContainers := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.LatestDigest)
+		runningContainers, err := c.ListRunningContainerIds(cakeContainer.ImageName, cakeContainer.LatestDigest)
+
+		if err != nil {
+			log.Errorf("Could not list running container IDs: %s", err.Error())
+			runningContainers = []string{}
+		}
 
 		// Checks if the container is in Cake's control. If it's not,
 		// Cake adds it to its list of running containers.
@@ -267,6 +286,8 @@ func (c *Cake) RunLatestDigest(cakeContainer *pb.Container) {
 				c.ContainersRunning.Unlock()
 			}
 		}
+
+		return nil
 	}
 }
 

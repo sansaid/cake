@@ -17,7 +17,7 @@ func NewContainer(image string) *pb.Container {
 	splitImage := strings.Split(Image, ":")
 
 	if len(splitImage) != 2 {
-		log.Fatalf("Image must be of the foramt <repo>/<image>:<tag>")
+		log.Fatalf("Image must be of the format <repo>/<image>:<tag>")
 	}
 
 	imageName, tag := splitImage[0], splitImage[1]
@@ -26,8 +26,8 @@ func NewContainer(image string) *pb.Container {
 		ImageName:    imageName,
 		Tag:          tag,
 		Registry:     registry,
-		Architecture: "amd64",
-		OS:           "linux",
+		Architecture: "amd64", // TODO: get this value automatically
+		OS:           "linux", // TODO: get this value automatically
 	}
 }
 

@@ -36,7 +36,7 @@ func TestLen(t *testing.T) {
 
 	for _, result := range expected {
 		if result.images.Len() != result.length {
-			Log(t, result.images.Len(), result.length)
+			t.Logf("Expected lenght %d, got %d", result.images.Len(), result.length)
 			t.Fail()
 		}
 	}
