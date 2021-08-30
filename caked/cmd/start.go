@@ -27,7 +27,7 @@ import (
 
 func startCake(port int) {
 	lis := utils.Must(net.Listen("tcp", fmt.Sprintf("localhost:%d", port)))
-	defer lis.Close()
+	defer lis.(net.Listener).Close()
 
 	var opts []grpc.ServerOption
 
@@ -35,7 +35,7 @@ func startCake(port int) {
 
 	pb.RegisterCakedServer(grpcServer, NewCake())
 
-	grpcServer.Serve(lis)
+	grpcServer.Serve(lis.(net.Listener))
 }
 
 // startCmd represents the start command
