@@ -20,8 +20,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	SLICE_STATUS_OK = iota
+	SLICE_STATUS_NOT_FOUND
+)
+
 type SliceCtx struct {
-	Container *pb.Slice
+	Container *pb.Slice // TODO: change name to Slice - Containers will be reserved for list of container IDs the slice manages (we may want to separate the containers managed by cake and those managed externally)
 	WaitGroup *sync.WaitGroup
 	Cancel    context.CancelFunc
 }
@@ -65,36 +70,48 @@ func NewCake(opts ...CakeOpts) *Cake {
 }
 
 // gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) RunSlice(ctx context.Context, container *pb.Slice) (*pb.SliceStatus, error) {
-	log.Info("Starting slice for image %s with tag %s", container.ImageName, container.Tag)
+func (c *Cake) RunSlice(ctx context.Context, slice *pb.Slice) (*pb.SliceStatus, error) {
+	log.Info("Starting slice for image %s", slice.ImageName)
 
 	var wg *sync.WaitGroup
 	ctx, cancel := context.WithCancel(ctx)
 
-	wg.Add(1)
-	go c.PollSlice(ctx, wg, container, 5*time.Second)
-
-	c.RunningSlices.Lock()
-	c.RunningSlices.slices[container.ImageName] = SliceCtx{
-		Container: container,
+	c.RunningSlices.RLock()
+	c.RunningSlices.slices[slice.ImageName] = SliceCtx{
+		Container: slice,
 		WaitGroup: wg,
 		Cancel:    cancel,
 	}
-	c.RunningSlices.Unlock()
+	c.RunningSlices.RUnlock()
+
+	wg.Add(1)
+	go c.PollSlice(ctx, wg, slice, 5*time.Second)
 
 	return &pb.SliceStatus{
-		Status:  0,
-		Message: "Container successfully started",
+		Status:  SLICE_STATUS_OK,
+		Message: "Container successfully started", // TODO: modify status message to include container IDs
 	}, nil
 }
 
 // gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) StopSlice(ctx context.Context, container *pb.Slice) (*pb.SliceStatus, error) {
-	fmt.Printf("Stopping slice: %#v", container) // TODO - NEXT: implement StopSlice gRPC operation
+func (c *Cake) StopSlice(ctx context.Context, image *pb.Image) (*pb.SliceStatus, error) {
+	log.Info("Stopping slice with image name: %#v", slice)
+
+	if _, ok := c.RunningSlices.slices[image.name]; !ok {
+		log.Errorf("StopSlice command issued for non-existent slice: %s", image.name)
+
+		return &pb.SliceStatus{
+			Status:  SLICE_STATUS_NOT_FOUND,
+			Message: fmt.Printf("Slice for image %s cannot be found", image.name), // TODO: modify status message to include container IDs
+		}, nil
+	}
+
+	c.RunningSlices.slices[imageName].Cancel()         // TODO: figure out how to deal with timeouts here - can these methods be transactional?
+	c.RunningSlices.slices[imageName].WaitGroup.Wait() // TODO: figure out how to deal with timeouts here - can these methods be transactional?
 
 	return &pb.SliceStatus{
 		Status:  0,
-		Message: "Container successfully stopped",
+		Message: "Container successfully stopped", // TODO: modify status message to include container IDs
 	}, nil
 }
 
@@ -105,6 +122,13 @@ func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slic
 			// Only terminating latest digest since this is assumed to be called synchronously after any previous digests
 			// have been terminated as a result of an update
 			c.TermDigest(slice.ImageName, slice.LatestDigest)
+
+			// Delegating responsibility of removing the slice reference here so that calling the cancel method externally automatically removes
+			// the reference in Cake
+			c.RunningSlices.RLock()
+			delete(c.RunningSlices.slices, slice.ImageName)
+			c.RunningSlices.RUnlock()
+
 			wg.Done()
 			return
 		default:
@@ -118,7 +142,7 @@ func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slic
 				}
 			}
 
-			time.Sleep(frequency)
+			time.Sleep(frequency) // TODO: polling frequency should be configured by slice
 		}
 	}
 }
@@ -145,6 +169,7 @@ func (c *Cake) UpdateLatestDigest(slice *pb.Slice) bool {
 	return false
 }
 
+// TODO: make this a Slice method
 func (c *Cake) RunDigest(imageName string, digest string, slice *pb.Slice) error {
 	if digest != "" {
 		ctx := context.TODO()
@@ -153,7 +178,7 @@ func (c *Cake) RunDigest(imageName string, digest string, slice *pb.Slice) error
 
 		platformSpecs := &specs.Platform{
 			Architecture: slice.Architecture,
-			OS:           slice.OS,
+			OS:           slice.Os,
 		}
 
 		containerConfig := container.Config{
@@ -163,13 +188,13 @@ func (c *Cake) RunDigest(imageName string, digest string, slice *pb.Slice) error
 		createdContainer, err := c.DockerClient.ContainerCreate(ctx, &containerConfig, &hostConfig, &networkConfig, platformSpecs, "")
 
 		if err != nil {
-			return fmt.Errorf("Could not create container for image %s and digest %s: %w", imageName, digest, err)
+			return fmt.Errorf("could not create container for image %s and digest %s: %w", imageName, digest, err)
 		}
 
 		err = c.DockerClient.ContainerStart(ctx, createdContainer.ID, types.ContainerStartOptions{})
 
 		if err != nil {
-			return fmt.Errorf("Could not start container for image %s and digest %s: %w", imageName, digest, err)
+			return fmt.Errorf("could not start container for image %s and digest %s: %w", imageName, digest, err)
 		}
 
 		// TODO: do we want to wait for container to be started? Will only be for logging purposes - debugging will have to be done through Docker
@@ -179,12 +204,13 @@ func (c *Cake) RunDigest(imageName string, digest string, slice *pb.Slice) error
 	return nil
 }
 
+// TODO: make this a Slice method
 func (c *Cake) TermDigest(imageName string, digest string) error {
 	if digest != "" {
 		containerIds, err := c.ListRunningContainerIds(imageName, digest) // TODO: do you want termination to be on all running containers running this digest? Shouldn't you separate what's managed by Cake and what was manually spun up?
 
 		if err != nil {
-			return fmt.Errorf("Could not stop container. Error in listing containers: %w", err)
+			return fmt.Errorf("could not stop container. Error in listing containers: %w", err)
 		}
 
 		for _, id := range containerIds {
@@ -223,8 +249,9 @@ func (c *Cake) ListRunningContainerIds(image string, digest string) ([]string, e
 	return containerIds, nil
 }
 
+// TODO: make this a Slice method
 func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
-	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", slice.ImageName)
+	repoURL := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", slice.ImageName) // TODO: container image should be fully qualified - error if not (this will allow pulling from arbitrary repos)
 
 	repoList := RepoList{}
 
@@ -232,18 +259,18 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 		return "", 0, err
 	}
 
-	imagesForArch := []Image{}
-	images := repoList.Results[0].Images
+	compatibleImages := []Image{}
+	allImages := repoList.Results[0].Images
 
-	for _, image := range images {
-		if image.Architecture == string(slice.Architecture) {
-			imagesForArch = append(imagesForArch, image)
+	for _, image := range allImages {
+		if image.Architecture == string(slice.Architecture) && image.OS == string(slice.Os) {
+			compatibleImages = append(compatibleImages, image)
 		}
 	}
 
-	sort.Sort(ByLastPushedDesc(imagesForArch))
+	sort.Sort(ByLastPushedDesc(compatibleImages))
 
-	latestImage := imagesForArch[0]
+	latestImage := compatibleImages[0]
 	latestImageDigest := latestImage.Digest
 	latestImagePushTime := latestImage.LastPushed
 
@@ -252,27 +279,48 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 	return latestImageDigest, latestDigestTime, nil
 }
 
+// Made into a method of Cake so that we can stub the method with a dummy implementation in testing
 func (c *Cake) MarshalHttp(url string, t interface{}) error {
 	// Cannot test unhappy path, only happy path
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 
 	if err != nil {
-		return fmt.Errorf("Could not perform get request on %s: %w", url, err)
+		return fmt.Errorf("could not perform get request on %s: %w", url, err)
 	}
 
 	resp, err := c.HttpClient.Do(req)
 	defer resp.Body.Close()
 
 	if err != nil {
-		return fmt.Errorf("Could not read request response from %s: %w", url, err)
+		return fmt.Errorf("could not read request response from %s: %w", url, err)
 	}
 
 	// Could not test unhappy path, only happy path
 	err = json.NewDecoder(resp.Body).Decode(t)
 
 	if err != nil {
-		return fmt.Errorf("Could not decode JSON from URL %s: %w", url, err) // TODO: decide if you want
+		return fmt.Errorf("could not decode JSON from URL %s: %w", url, err)
 	}
 
 	return nil
+}
+
+func (c *Cake) Stop(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	for _, slice := range c.RunningSlices.slices {
+		slice.Cancel()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out stopping cake: %w", ctx.Err())
+		default:
+			if len(c.RunningSlices.slices) == 0 {
+				return nil
+			}
+		}
+	}
 }

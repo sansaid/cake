@@ -25,6 +25,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var cake *Cake
+
 func startCake(port int) {
 	lis := utils.Must(net.Listen("tcp", fmt.Sprintf("localhost:%d", port)))
 	defer lis.(net.Listener).Close()
@@ -33,7 +35,9 @@ func startCake(port int) {
 
 	grpcServer := grpc.NewServer(opts...)
 
-	pb.RegisterCakedServer(grpcServer, NewCake())
+	cake = NewCake()
+
+	pb.RegisterCakedServer(grpcServer, cake)
 
 	grpcServer.Serve(lis.(net.Listener))
 }
@@ -44,7 +48,7 @@ var startCmd = &cobra.Command{
 	Short: "Start the Cake daemon",
 	Long:  `Start running the Cake daemon`,
 	Run: func(cmd *cobra.Command, args []string) {
-		startCake("6010") // TODO: turn into server config: --port
+		startCake(6010) // TODO: turn into server config: --port
 	},
 }
 

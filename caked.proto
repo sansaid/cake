@@ -5,25 +5,29 @@ option go_package = ".;pb";
 
 service Caked {
     rpc RunSlice(Slice) returns (SliceStatus) {}
-    rpc StopSlice(Slice) returns (SliceStatus) {}
+    rpc StopSlice(Image) returns (SliceStatus) {}
 } 
 
 message Slice {
-    string ImageName = 1;
-    string Tag = 2;
-    string Registry = 3;
-    string PreviousDigest = 4;
-    int64 PreviousDigestTime = 5;
-    string LatestDigest = 6;
-    int64 LatestDigestTime = 7;
-    int64 LastChecked = 8;
-    int64 LastUpdated = 9;
-    string Architecture = 10;
-    string OS = 11;
-    repeated string ContainerId = 12;
+    string image_name = 1;
+    string tag = 2;
+    string registry = 3;
+    string previous_digest = 4;
+    int64 previous_digest_time = 5;
+    string latest_digest = 6;
+    int64 latest_digest_time = 7;
+    int64 last_checked = 8;
+    int64 last_updated = 9;
+    string architecture = 10;
+    string os = 11;
+    repeated string container_ids = 12;
 }
 
 message SliceStatus {
-    int32 Status = 1;
-    string Message = 2;
+    int32 status = 1;
+    string message = 2;
+}
+
+message Image {
+    string name = 1;
 }

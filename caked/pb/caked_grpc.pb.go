@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CakedClient interface {
 	RunSlice(ctx context.Context, in *Slice, opts ...grpc.CallOption) (*SliceStatus, error)
-	StopSlice(ctx context.Context, in *Slice, opts ...grpc.CallOption) (*SliceStatus, error)
+	StopSlice(ctx context.Context, in *Image, opts ...grpc.CallOption) (*SliceStatus, error)
 }
 
 type cakedClient struct {
@@ -39,7 +39,7 @@ func (c *cakedClient) RunSlice(ctx context.Context, in *Slice, opts ...grpc.Call
 	return out, nil
 }
 
-func (c *cakedClient) StopSlice(ctx context.Context, in *Slice, opts ...grpc.CallOption) (*SliceStatus, error) {
+func (c *cakedClient) StopSlice(ctx context.Context, image *Image, opts ...grpc.CallOption) (*SliceStatus, error) {
 	out := new(SliceStatus)
 	err := c.cc.Invoke(ctx, "/cake.Caked/StopSlice", in, out, opts...)
 	if err != nil {
@@ -53,7 +53,7 @@ func (c *cakedClient) StopSlice(ctx context.Context, in *Slice, opts ...grpc.Cal
 // for forward compatibility
 type CakedServer interface {
 	RunSlice(context.Context, *Slice) (*SliceStatus, error)
-	StopSlice(context.Context, *Slice) (*SliceStatus, error)
+	StopSlice(context.Context, *Image) (*SliceStatus, error)
 	mustEmbedUnimplementedCakedServer()
 }
 
@@ -64,7 +64,7 @@ type UnimplementedCakedServer struct {
 func (UnimplementedCakedServer) RunSlice(context.Context, *Slice) (*SliceStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSlice not implemented")
 }
-func (UnimplementedCakedServer) StopSlice(context.Context, *Slice) (*SliceStatus, error) {
+func (UnimplementedCakedServer) StopSlice(context.Context, *Image) (*SliceStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopSlice not implemented")
 }
 func (UnimplementedCakedServer) mustEmbedUnimplementedCakedServer() {}
@@ -99,7 +99,7 @@ func _Caked_RunSlice_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _Caked_StopSlice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Slice)
+	in := new(Image)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func _Caked_StopSlice_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: "/cake.Caked/StopSlice",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CakedServer).StopSlice(ctx, req.(*Slice))
+		return srv.(CakedServer).StopSlice(ctx, req.(*Image))
 	}
 	return interceptor(ctx, in, info, handler)
 }

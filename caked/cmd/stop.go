@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +27,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stop the Cake daemon",
 	Long:  `Stop running the Cake daemon`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("stop called") // TODO: implement stop command for cake - don't forget about clean up operations
+		cake.Stop(context.Background())
 	},
 }
 
