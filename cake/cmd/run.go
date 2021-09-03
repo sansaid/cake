@@ -16,10 +16,24 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/sansaid/cake/cake/pb"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
+
+func NewSlice(imageName string) *pb.Slice {
+	os := "linux"
+	arch := "amd64"
+
+	return &pb.Slice{
+		ImageName:    imageName,
+		Os:           os,
+		Architecture: arch,
+	}
+}
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
@@ -28,7 +42,24 @@ var runCmd = &cobra.Command{
 	Long: `Run your image as a Cake slice. A Cake slice is simply a Docker container that is always kept up to \
 	date with an image in your Docker Hub registry. Only compatible with public Docker Hub registries at the moment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("run called")
+		var opts []grpc.DialOption
+		conn, err := grpc.Dial("localhost:6010", opts...) // TODO: these should be CLI arguments or config
+		defer conn.Close()
+
+		if err != nil {
+			log.Errorf("Could not create slice for image %s: %w", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
+			return
+		}
+
+		client := pb.NewCakeClient(conn)
+		slice := NewSlice(sliceImage)
+
+		status, err := client.RunSlice(context.Background(), slice)
+
+		if err != nil || status.Status != 0 {
+			log.Errorf("Failed to run slice for image %s: %s - %w", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+			return
+		}
 	},
 }
 

@@ -16,9 +16,12 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/sansaid/cake/cake/pb"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 // stopCmd represents the stop command
@@ -27,7 +30,23 @@ var stopCmd = &cobra.Command{
 	Short: "Stop running your image as a Cake slice",
 	Long:  `Stop running your image as a Cake slice. This will kill any containers running with this image.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("stop called") // TODO: implement stop command for client
+		var opts []grpc.DialOption
+		conn, err := grpc.Dial("localhost:6010", opts...) // TODO: these should be CLI arguments or config
+		defer conn.Close()
+
+		if err != nil {
+			log.Errorf("Could not stop slice for image %s: %w", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
+			return
+		}
+
+		client := pb.NewCakeClient(conn)
+
+		status, err := client.StopSlice(context.Background(), sliceImage)
+
+		if err != nil || status.Status != 0 { // TODO: Remove reliance on SliceStatus - rely only on error message
+			log.Errorf("Failed to run slice for image %s: %s - %w", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+			return
+		}
 	},
 }
 
