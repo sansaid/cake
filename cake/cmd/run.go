@@ -51,7 +51,7 @@ var runCmd = &cobra.Command{
 			return
 		}
 
-		client := pb.NewCakeClient(conn)
+		client := pb.NewCakedClient(conn)
 		slice := NewSlice(sliceImage)
 
 		status, err := client.RunSlice(context.Background(), slice)

@@ -34,17 +34,21 @@ var stopCmd = &cobra.Command{
 		conn, err := grpc.Dial("localhost:6010", opts...) // TODO: these should be CLI arguments or config
 		defer conn.Close()
 
+		image := &pb.Image{
+			Name: sliceImage,
+		}
+
 		if err != nil {
-			log.Errorf("Could not stop slice for image %s: %w", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Could not stop slice for image %s: %w", image.Name, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 
-		client := pb.NewCakeClient(conn)
+		client := pb.NewCakedClient(conn)
 
-		status, err := client.StopSlice(context.Background(), sliceImage)
+		status, err := client.StopSlice(context.Background(), image)
 
 		if err != nil || status.Status != 0 { // TODO: Remove reliance on SliceStatus - rely only on error message
-			log.Errorf("Failed to run slice for image %s: %s - %w", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Failed to run slice for image %s: %s - %w", image.Name, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 	},

@@ -147,6 +147,7 @@ func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slic
 	}
 }
 
+// Keeping this as a Cake method since it relies on the Docker client wrapped inside Cake
 func (c *Cake) UpdateLatestDigest(slice *pb.Slice) bool {
 	slice.LastChecked = time.Now().Unix()
 
