@@ -12,7 +12,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-type ModContainerAPIClient interface {
+type CakeContainerAPIClient interface {
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
 	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
@@ -23,6 +23,6 @@ type ModContainerAPIClient interface {
 	Close() error
 }
 
-type ModHTTPClient interface {
+type CakeHTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }

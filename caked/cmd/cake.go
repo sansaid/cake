@@ -38,8 +38,8 @@ type Slices struct {
 
 type Cake struct {
 	pb.UnimplementedCakedServer
-	DockerClient  ModContainerAPIClient
-	HttpClient    ModHTTPClient
+	DockerClient  CakeContainerAPIClient
+	HttpClient    CakeHTTPClient
 	RunningSlices Slices
 	StopTimeout   time.Duration
 }
