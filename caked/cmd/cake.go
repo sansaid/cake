@@ -40,26 +40,38 @@ type Cake struct {
 	pb.UnimplementedCakedServer
 	DockerClient  CakeContainerAPIClient
 	HttpClient    CakeHTTPClient
-	RunningSlices Slices
+	RunningSlices *Slices
 	StopTimeout   time.Duration
 }
 
 type CakeOpts func(*Cake)
 
-// has type CakeOpts
 func WithStopTimeout(duration time.Duration) CakeOpts {
 	return func(c *Cake) {
 		c.StopTimeout = duration
 	}
 }
 
+func WithDockerClient(client CakeContainerAPIClient) CakeOpts {
+	return func(c *Cake) {
+		c.DockerClient = client
+	}
+}
+
+func WithHttpClient(client CakeHTTPClient) CakeOpts {
+	return func(c *Cake) {
+		c.HttpClient = client
+	}
+}
+
 func NewCake(opts ...CakeOpts) *Cake {
-	client := utils.Must(dockerClient.NewClientWithOpts()).(ModContainerAPIClient)
+	client := utils.Must(dockerClient.NewClientWithOpts()).(CakeContainerAPIClient)
 
 	cake := &Cake{
-		DockerClient: client,
-		HttpClient:   &http.Client{Timeout: time.Second * 3},
-		StopTimeout:  30 * time.Second,
+		DockerClient:  client,
+		HttpClient:    &http.Client{Timeout: time.Second * 3},
+		StopTimeout:   30 * time.Second,
+		RunningSlices: &Slices{slices: make(map[string]SliceCtx)},
 	}
 
 	for _, opt := range opts {
@@ -69,20 +81,26 @@ func NewCake(opts ...CakeOpts) *Cake {
 	return cake
 }
 
-// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
-func (c *Cake) RunSlice(ctx context.Context, slice *pb.Slice) (*pb.SliceStatus, error) {
-	log.Info("Starting slice for image %s", slice.ImageName)
-
-	var wg *sync.WaitGroup
-	ctx, cancel := context.WithCancel(ctx)
-
+func (c *Cake) AddNewSlice(slice *pb.Slice, wg *sync.WaitGroup, cancelFunc context.CancelFunc) {
 	c.RunningSlices.RLock()
 	c.RunningSlices.slices[slice.ImageName] = SliceCtx{
 		Container: slice,
 		WaitGroup: wg,
-		Cancel:    cancel,
+		Cancel:    cancelFunc,
 	}
 	c.RunningSlices.RUnlock()
+}
+
+// gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
+func (c *Cake) RunSlice(ctx context.Context, slice *pb.Slice) (*pb.SliceStatus, error) {
+	log.Infof("Starting slice for image %s", slice.ImageName)
+
+	// TODO: create a c.ValidateSlice(slice) function
+
+	var wg *sync.WaitGroup
+	ctx, cancel := context.WithCancel(ctx)
+
+	c.AddNewSlice(slice, wg, cancel)
 
 	wg.Add(1)
 	go c.PollSlice(ctx, wg, slice, 5*time.Second)
@@ -95,14 +113,16 @@ func (c *Cake) RunSlice(ctx context.Context, slice *pb.Slice) (*pb.SliceStatus, 
 
 // gRPC server methods - this should only get called by the gRPC client (should never be called directly in this code)
 func (c *Cake) StopSlice(ctx context.Context, image *pb.Image) (*pb.SliceStatus, error) {
-	log.Info("Stopping slice with image name: %#v", slice)
+	imageName := image.Name
 
-	if _, ok := c.RunningSlices.slices[image.name]; !ok {
-		log.Errorf("StopSlice command issued for non-existent slice: %s", image.name)
+	log.Infof("Stopping slice with image name %s", imageName)
+
+	if _, ok := c.RunningSlices.slices[imageName]; !ok {
+		log.Errorf("StopSlice command issued for non-existent slice: %s", imageName)
 
 		return &pb.SliceStatus{
 			Status:  SLICE_STATUS_NOT_FOUND,
-			Message: fmt.Printf("Slice for image %s cannot be found", image.name), // TODO: modify status message to include container IDs
+			Message: fmt.Sprintf("Slice for image %s cannot be found", imageName), // TODO: modify status message to include container IDs
 		}, nil
 	}
 
@@ -134,11 +154,11 @@ func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slic
 		default:
 			if c.UpdateLatestDigest(slice) {
 				if err := c.RunDigest(slice.ImageName, slice.LatestDigest, slice); err != nil {
-					log.Errorf("Could not run latest digest %s for image %s: %w", slice.LatestDigest, slice.ImageName, err)
+					log.Errorf("Could not run latest digest %s for image %s: %s", slice.LatestDigest, slice.ImageName, err)
 				}
 
 				if err := c.TermDigest(slice.ImageName, slice.PreviousDigest); err != nil {
-					log.Errorf("Could not terminate previous digest %s for image %s: %w", slice.PreviousDigest, slice.ImageName, err)
+					log.Errorf("Could not terminate previous digest %s for image %s: %s", slice.PreviousDigest, slice.ImageName, err)
 				}
 			}
 
@@ -154,7 +174,7 @@ func (c *Cake) UpdateLatestDigest(slice *pb.Slice) bool {
 	latestDigest, latestDigestTime, err := c.GetLatestDigest(slice)
 
 	if err != nil {
-		log.Errorf("Could not update latest digest for image %s: %w", slice.ImageName, err)
+		log.Errorf("Could not update latest digest for image %s: %s", slice.ImageName, err)
 		return false
 	}
 
@@ -219,7 +239,7 @@ func (c *Cake) TermDigest(imageName string, digest string) error {
 			err := c.DockerClient.ContainerStop(ctx, id, &c.StopTimeout)
 
 			if err != nil {
-				log.Errorf("Could not issue stop to container %s: %w", id, err)
+				log.Errorf("Could not issue stop to container %s: %s", id, err)
 				continue
 			}
 
