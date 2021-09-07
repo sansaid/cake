@@ -39,7 +39,7 @@ func (c *cakedClient) RunSlice(ctx context.Context, in *Slice, opts ...grpc.Call
 	return out, nil
 }
 
-func (c *cakedClient) StopSlice(ctx context.Context, image *Image, opts ...grpc.CallOption) (*SliceStatus, error) {
+func (c *cakedClient) StopSlice(ctx context.Context, in *Image, opts ...grpc.CallOption) (*SliceStatus, error) {
 	out := new(SliceStatus)
 	err := c.cc.Invoke(ctx, "/cake.Caked/StopSlice", in, out, opts...)
 	if err != nil {
