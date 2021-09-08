@@ -136,6 +136,8 @@ func (c *Cake) StopSlice(ctx context.Context, image *pb.Image) (*pb.SliceStatus,
 }
 
 func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slice, frequency time.Duration) {
+	defer wg.Done()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -149,7 +151,6 @@ func (c *Cake) PollSlice(ctx context.Context, wg *sync.WaitGroup, slice *pb.Slic
 			delete(c.RunningSlices.slices, slice.ImageName)
 			c.RunningSlices.RUnlock()
 
-			wg.Done()
 			return
 		default:
 			if c.UpdateLatestDigest(slice) {
@@ -281,7 +282,7 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 	}
 
 	compatibleImages := []Image{}
-	allImages := repoList.Results[0].Images
+	allImages := repoList.Results[0].Images // assumes there will always be at least one image in the repo
 
 	for _, image := range allImages {
 		if image.Architecture == string(slice.Architecture) && image.OS == string(slice.Os) {
@@ -291,7 +292,7 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 
 	sort.Sort(ByLastPushedDesc(compatibleImages))
 
-	latestImage := compatibleImages[0]
+	latestImage := compatibleImages[0] // assumes there will always be at least one image in the image details
 	latestImageDigest := latestImage.Digest
 	latestImagePushTime := latestImage.LastPushed
 
@@ -310,11 +311,12 @@ func (c *Cake) MarshalHttp(url string, t interface{}) error {
 	}
 
 	resp, err := c.HttpClient.Do(req)
-	defer resp.Body.Close()
 
 	if err != nil {
 		return fmt.Errorf("could not read request response from %s: %w", url, err)
 	}
+
+	defer resp.Body.Close()
 
 	// Could not test unhappy path, only happy path
 	err = json.NewDecoder(resp.Body).Decode(t)

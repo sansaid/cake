@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	cakeMocks "github.com/sansaid/cake/caked/mocks"
 	"github.com/sansaid/cake/caked/pb"
+	"github.com/sansaid/cake/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -206,21 +208,83 @@ func TestListRunningContainerIds_Errors(t *testing.T) {
 // Need to write test for when MarshallHttp returns error
 func TestGetLatestDigest_OK(t *testing.T) {
 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
 
-	req, _ := http.NewRequest(http.MethodGet, "test.url", nil)
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	resp := RepoList{
+		Count: 2,
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUno",
+						LastPushed:   time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
 
 	mockHttpClient.On("Do", req).Return(
 		&http.Response{
-			Body: io.NopCloser(bytes.NewBufferString("{ \"fieldA\": \"valA\", \"fieldB\": \"valB\" }")),
+			Body: utils.JsonNopCloser(resp),
 		},
 		nil,
 	)
 
 	cake := NewCake(WithHttpClient(mockHttpClient))
 
-	expRes := []string{}
-	res, err := cake.ListRunningContainerIds("testImage", "testDigest")
+	expDigest := "dummyDigestUno"
+	expTime := time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC).Unix()
 
-	assert.Equal(t, expRes, res)
-	assert.Error(t, err)
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
 }
+
+// func TestGetLatestDigest_OK(t *testing.T) {
+// 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+
+// 	req, _ := http.NewRequest(http.MethodGet, "test.url", nil)
+
+// 	mockHttpClient.On("Do", req).Return(
+// 		&http.Response{
+// 			Body: io.NopCloser(bytes.NewBufferString("{ \"fieldA\": \"valA\", \"fieldB\": \"valB\" }")),
+// 		},
+// 		nil,
+// 	)
+
+// 	cake := NewCake(WithHttpClient(mockHttpClient))
+
+// 	expRes := []string{}
+// 	res, err := cake.ListRunningContainerIds("testImage", "testDigest")
+
+// 	assert.Equal(t, expRes, res)
+// 	assert.Error(t, err)
+// }
