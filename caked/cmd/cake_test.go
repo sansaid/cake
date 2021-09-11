@@ -213,8 +213,8 @@ func TestGetLatestDigest_OK(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
 	resp := RepoList{
-		Count: 2,
 		Results: []ImageDetails{
 			{
 				ID:      1,
@@ -223,7 +223,19 @@ func TestGetLatestDigest_OK(t *testing.T) {
 					{
 						Architecture: "amd64",
 						OS:           "linux",
-						Digest:       "dummyDigestUno",
+						Digest:       "dummyDigestUnoA",
+						LastPushed:   time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoB",
+						LastPushed:   time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoC",
 						LastPushed:   time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC),
 					},
 				},
@@ -254,8 +266,8 @@ func TestGetLatestDigest_OK(t *testing.T) {
 
 	cake := NewCake(WithHttpClient(mockHttpClient))
 
-	expDigest := "dummyDigestUno"
-	expTime := time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC).Unix()
+	expDigest := "dummyDigestUnoB"
+	expTime := time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC).Unix()
 
 	digest, time, err := cake.GetLatestDigest(&pb.Slice{
 		ImageName:    imageName,
@@ -268,23 +280,313 @@ func TestGetLatestDigest_OK(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// func TestGetLatestDigest_OK(t *testing.T) {
-// 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+// Testing that GetLatestDigest returns an error on response that could not be unmarshalled to RepoList
+// Must not panic
+func TestGetLatestDigest_BadRepoList(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
 
-// 	req, _ := http.NewRequest(http.MethodGet, "test.url", nil)
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-// 	mockHttpClient.On("Do", req).Return(
-// 		&http.Response{
-// 			Body: io.NopCloser(bytes.NewBufferString("{ \"fieldA\": \"valA\", \"fieldB\": \"valB\" }")),
-// 		},
-// 		nil,
-// 	)
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	resp := RepoList{}
 
-// 	cake := NewCake(WithHttpClient(mockHttpClient))
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
 
-// 	expRes := []string{}
-// 	res, err := cake.ListRunningContainerIds("testImage", "testDigest")
+	cake := NewCake(WithHttpClient(mockHttpClient))
 
-// 	assert.Equal(t, expRes, res)
-// 	assert.Error(t, err)
-// }
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.Error(t, err)
+}
+
+// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (contains no Images)
+// Must not panic
+func TestGetLatestDigest_BadImages(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:            1,
+				ImageID:       "dummyImageIdUno",
+				Images:        []Image{},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.Error(t, err)
+}
+
+// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an Architecture field)
+// Must not panic
+func TestGetLatestDigest_BadImagesNoArchitecture(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						OS:         "linux",
+						Digest:     "dummyDigestUnoA",
+						LastPushed: time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						OS:         "linux",
+						Digest:     "dummyDigestUnoB",
+						LastPushed: time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						OS:         "linux",
+						Digest:     "dummyDigestUnoC",
+						LastPushed: time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+}
+
+// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an OS field)
+// Must not panic
+func TestGetLatestDigest_BadImagesNoOS(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						Digest:       "dummyDigestUnoA",
+						LastPushed:   time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						Digest:       "dummyDigestUnoB",
+						LastPushed:   time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						Digest:       "dummyDigestUnoC",
+						LastPushed:   time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+}
+
+// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an LastPushed field)
+// Must not panic
+func TestGetLatestDigest_BadImagesNoLastPushed(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoA",
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoB",
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoC",
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+}

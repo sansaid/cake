@@ -179,6 +179,11 @@ func (c *Cake) UpdateLatestDigest(slice *pb.Slice) bool {
 		return false
 	}
 
+	if latestDigest == "" && latestDigestTime == 0 {
+		log.Debug("No latest image matching platform requirements (architecture and OS)")
+		return false
+	}
+
 	if slice.LatestDigest != latestDigest {
 		slice.PreviousDigest = slice.LatestDigest
 		slice.PreviousDigestTime = slice.LatestDigestTime
@@ -282,17 +287,30 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 	}
 
 	compatibleImages := []Image{}
+
+	if len(repoList.Results) == 0 {
+		return "", 0, fmt.Errorf("Response returned Results with length 0 - could not pull latest image")
+	}
+
 	allImages := repoList.Results[0].Images // assumes there will always be at least one image in the repo
 
+	if len(allImages) == 0 {
+		return "", 0, fmt.Errorf("Response returned latest image with Images list that has length 0 - could not pull latest image")
+	}
+
 	for _, image := range allImages {
-		if image.Architecture == string(slice.Architecture) && image.OS == string(slice.Os) {
+		if isValid(image, slice) {
 			compatibleImages = append(compatibleImages, image)
 		}
 	}
 
+	if len(compatibleImages) == 0 {
+		return "", 0, nil
+	}
+
 	sort.Sort(ByLastPushedDesc(compatibleImages))
 
-	latestImage := compatibleImages[0] // assumes there will always be at least one image in the image details
+	latestImage := compatibleImages[0]
 	latestImageDigest := latestImage.Digest
 	latestImagePushTime := latestImage.LastPushed
 
@@ -346,4 +364,11 @@ func (c *Cake) Stop(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func isValid(image Image, slice *pb.Slice) bool {
+	return image.Architecture == string(slice.Architecture) &&
+		image.OS == string(slice.Os) &&
+		!(image.LastPushed.IsZero()) &&
+		image.Digest != ""
 }
