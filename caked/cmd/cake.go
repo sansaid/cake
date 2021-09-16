@@ -289,17 +289,22 @@ func (c *Cake) GetLatestDigest(slice *pb.Slice) (string, int64, error) {
 	compatibleImages := []Image{}
 
 	if len(repoList.Results) == 0 {
-		return "", 0, fmt.Errorf("Response returned Results with length 0 - could not pull latest image")
+		return "", 0, fmt.Errorf("response returned Results with length 0 - could not pull latest image")
 	}
 
 	allImages := repoList.Results[0].Images // assumes there will always be at least one image in the repo
 
 	if len(allImages) == 0 {
-		return "", 0, fmt.Errorf("Response returned latest image with Images list that has length 0 - could not pull latest image")
+		return "", 0, fmt.Errorf("response returned latest image with Images list that has length 0 - could not pull latest image")
 	}
 
 	for _, image := range allImages {
-		if isValid(image, slice) {
+		if missingRequiredFields(image) {
+			log.Errorf("One of the images returned does not contain the required fields - something is wrong with the response. Bad image: %#v.", image)
+			continue
+		}
+
+		if image.Architecture == string(slice.Architecture) && image.OS == string(slice.Os) {
 			compatibleImages = append(compatibleImages, image)
 		}
 	}
@@ -366,9 +371,6 @@ func (c *Cake) Stop(ctx context.Context) error {
 	}
 }
 
-func isValid(image Image, slice *pb.Slice) bool {
-	return image.Architecture == string(slice.Architecture) &&
-		image.OS == string(slice.Os) &&
-		!(image.LastPushed.IsZero()) &&
-		image.Digest != ""
+func missingRequiredFields(image Image) bool {
+	return image.LastPushed.IsZero() || image.Digest == "" || image.OS == "" || image.Architecture == ""
 }

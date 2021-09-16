@@ -15,6 +15,7 @@ import (
 	cakeMocks "github.com/sansaid/cake/caked/mocks"
 	"github.com/sansaid/cake/caked/pb"
 	"github.com/sansaid/cake/utils"
+	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -203,9 +204,6 @@ func TestListRunningContainerIds_Errors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TODO - NEXT: finish writing tests for GetLatestDigest ->
-// Need to read from fixtures for OK tests
-// Need to write test for when MarshallHttp returns error
 func TestGetLatestDigest_OK(t *testing.T) {
 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
 	imageName := "sansaid/dummyimage:dummytag"
@@ -289,7 +287,6 @@ func TestGetLatestDigest_BadRepoList(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
 	resp := RepoList{}
 
 	mockHttpClient.On("Do", req).Return(
@@ -324,7 +321,6 @@ func TestGetLatestDigest_BadImages(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
 	resp := RepoList{
 		Results: []ImageDetails{
 			{
@@ -372,7 +368,7 @@ func TestGetLatestDigest_BadImages(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an Architecture field)
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (Images do not have an Architecture field)
 // Must not panic
 func TestGetLatestDigest_BadImagesNoArchitecture(t *testing.T) {
 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
@@ -381,7 +377,8 @@ func TestGetLatestDigest_BadImagesNoArchitecture(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	hook := logTest.NewGlobal()
+
 	resp := RepoList{
 		Results: []ImageDetails{
 			{
@@ -443,9 +440,11 @@ func TestGetLatestDigest_BadImagesNoArchitecture(t *testing.T) {
 	assert.Equal(t, expDigest, digest)
 	assert.Equal(t, expTime, time)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
 }
 
-// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an OS field)
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (Images do not have an OS field)
 // Must not panic
 func TestGetLatestDigest_BadImagesNoOS(t *testing.T) {
 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
@@ -454,7 +453,8 @@ func TestGetLatestDigest_BadImagesNoOS(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	hook := logTest.NewGlobal()
+
 	resp := RepoList{
 		Results: []ImageDetails{
 			{
@@ -516,9 +516,11 @@ func TestGetLatestDigest_BadImagesNoOS(t *testing.T) {
 	assert.Equal(t, expDigest, digest)
 	assert.Equal(t, expTime, time)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
 }
 
-// Testing that GetLatestDigest returns an error on response that has bad first ImageDetails (Images do not have an LastPushed field)
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (Images do not have an LastPushed field)
 // Must not panic
 func TestGetLatestDigest_BadImagesNoLastPushed(t *testing.T) {
 	mockHttpClient := new(cakeMocks.CakeHTTPClient)
@@ -527,7 +529,8 @@ func TestGetLatestDigest_BadImagesNoLastPushed(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
 
-	// repoUrl is supposed to return an already ordered list, so we won't test whether the list is ordered
+	hook := logTest.NewGlobal()
+
 	resp := RepoList{
 		Results: []ImageDetails{
 			{
@@ -589,4 +592,236 @@ func TestGetLatestDigest_BadImagesNoLastPushed(t *testing.T) {
 	assert.Equal(t, expDigest, digest)
 	assert.Equal(t, expTime, time)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
+}
+
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (Images do not have an Digest field)
+// Must not panic
+func TestGetLatestDigest_BadImagesNoDigest(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	hook := logTest.NewGlobal()
+
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						LastPushed:   time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						LastPushed:   time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						LastPushed:   time.Date(2020, time.January, 4, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := ""
+	expTime := int64(0)
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
+}
+
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (only one image is bad)
+// Must not panic
+func TestGetLatestDigest_BadImagesAtMostOneBad(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	hook := logTest.NewGlobal()
+
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						Digest:       "dummyDigestUnoA",
+						LastPushed:   time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoB",
+						LastPushed:   time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoC",
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := "dummyDigestUnoB"
+	expTime := time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC).Unix()
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
+}
+
+// Testing that GetLatestDigest logs an error on response that has bad first ImageDetails (only one image is bad)
+// Must not panic
+func TestUpdateLatestDigest_OK(t *testing.T) {
+	mockHttpClient := new(cakeMocks.CakeHTTPClient)
+	imageName := "sansaid/dummyimage:dummytag"
+	repoUrl := fmt.Sprintf("https://registry.hub.docker.com/v2/repositories/%s/tags?ordering=last_updated", imageName)
+
+	req, _ := http.NewRequest(http.MethodGet, repoUrl, nil)
+
+	hook := logTest.NewGlobal()
+
+	resp := RepoList{
+		Results: []ImageDetails{
+			{
+				ID:      1,
+				ImageID: "dummyImageIdUno",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						Digest:       "dummyDigestUnoA",
+						LastPushed:   time.Date(2020, time.January, 4, 3, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoB",
+						LastPushed:   time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC),
+					},
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestUnoC",
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 4, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:      2,
+				ImageID: "dummyImageIdDos",
+				Images: []Image{
+					{
+						Architecture: "amd64",
+						OS:           "linux",
+						Digest:       "dummyDigestDos",
+						LastPushed:   time.Date(2020, time.January, 3, 1, 0, 0, 0, time.UTC),
+					},
+				},
+				TagLastPushed: time.Date(2020, time.January, 3, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	mockHttpClient.On("Do", req).Return(
+		&http.Response{
+			Body: utils.JsonNopCloser(resp),
+		},
+		nil,
+	)
+
+	cake := NewCake(WithHttpClient(mockHttpClient))
+
+	expDigest := "dummyDigestUnoB"
+	expTime := time.Date(2020, time.January, 4, 2, 0, 0, 0, time.UTC).Unix()
+
+	digest, time, err := cake.GetLatestDigest(&pb.Slice{
+		ImageName:    imageName,
+		Os:           "linux",
+		Architecture: "amd64",
+	})
+
+	assert.Equal(t, expDigest, digest)
+	assert.Equal(t, expTime, time)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(hook.Entries))
+	assert.Contains(t, hook.LastEntry().Message, "One of the images returned does not contain the required fields")
 }
