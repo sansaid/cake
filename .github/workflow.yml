@@ -1,0 +1,53 @@
+on:
+  push:
+    <<:*branch-rules
+  pull_request:
+    <<:*branch-rules
+
+defaults:
+  runs_on: ubuntu-latest
+  container:
+      image: golang:1.17-alpine
+
+jobs:
+  caked:
+    steps:
+      - name: Install protobuf compilers
+        run: |
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+      - name: Compile protobuf definitions
+        run: |
+          protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
+      - name: Test caked
+        run: |
+          cd ./caked/cmd && go test .
+      - name: Build caked
+        run: |
+          cd ./caked && go build . -o caked
+      - name: Ship caked
+        run: |
+          cd ./caked && echo "Shipping caked, somewhere over the rainbow.."
+  cake-cli:
+    steps:
+      - name: Install protobuf compilers
+        run: |
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+      - name: Compile protobuf definitions
+        run: |
+          protoc --go-grpc_out=./cake/pb --go-grpc_opt=paths=source_relative --go_out=./cake/pb --go_opt=paths=source_relative caked.proto
+      - name: Build cake-cli
+        run: |
+          cd ./cake && go build . -o cake
+      - name: Ship cake-cli
+        run: |
+          cd ./cake && echo "Shipping cake, somewhere over the rainbow..
+
+## ANCHORS ##
+
+branch-rules: &branches
+  branches:
+    - main
+    - 'release/**'
+    - dev
+  branches-ignore:
+    - 'wf-ignore/**'
