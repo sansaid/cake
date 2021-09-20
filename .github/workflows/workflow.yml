@@ -1,8 +1,8 @@
 on:
   push:
-    <<:*branch-rules
+    <<: *branch-rules
   pull_request:
-    <<:*branch-rules
+    <<: *branch-rules
 
 defaults:
   runs_on: ubuntu-latest
