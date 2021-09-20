@@ -1,3 +1,11 @@
+branch-rules: &branch-rules
+  branches:
+    - main
+    - 'release/**'
+    - dev
+  branches-ignore:
+    - 'wf-ignore/**'
+
 on:
   push:
     <<: *branch-rules
@@ -41,13 +49,3 @@ jobs:
       - name: Ship cake-cli
         run: |
           cd ./cake && echo "Shipping cake, somewhere over the rainbow..
-
-## ANCHORS ##
-
-branch-rules: &branch-rules
-  branches:
-    - main
-    - 'release/**'
-    - dev
-  branches-ignore:
-    - 'wf-ignore/**'
