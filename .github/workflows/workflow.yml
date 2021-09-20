@@ -1,14 +1,14 @@
-branch-rules: &branch-rules
-  branches:
+on:
+  push:
+    branches:
     - main
     - 'release/**'
     - dev
-
-on:
-  push:
-    <<: *branch-rules
   pull_request:
-    <<: *branch-rules
+    branches:
+    - main
+    - 'release/**'
+    - dev
 
 defaults:
   runs_on: ubuntu-latest
