@@ -17,8 +17,8 @@ jobs:
       - name: Install dependencies
         run: |
           # Install golang
-          wget https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
-          tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          tar -C $HOME/.bin -xzf go1.17.1.linux-amd64.tar.gz
 
           # Install protoc
           apt install -y protobuf-compiler
@@ -28,7 +28,7 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
       - name: Compile protobuf definitions
         run: |
-          export PATH="$PATH:$(go env GOPATH)/bin"
+          export PATH="$PATH:$(go env GOPATH)/bin:$HOME/.bin/go"
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
