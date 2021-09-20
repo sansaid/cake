@@ -13,11 +13,17 @@ on:
 jobs:
   caked:
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.17-alpine
     steps:
-      - name: Install protobuf compilers
+      - name: Install dependencies
         run: |
+          # Install golang
+          wget https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Install protoc
+          apt install -y protobuf-compiler
+
+          # Install protoc plugins
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
       - name: Compile protobuf definitions
