@@ -44,7 +44,7 @@ jobs:
 
 ## ANCHORS ##
 
-branch-rules: &branches
+branch-rules: &branch-rules
   branches:
     - main
     - 'release/**'
