@@ -24,17 +24,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewSlice(imageName string) *pb.Slice {
-	os := "linux"
-	arch := "amd64"
-
-	return &pb.Slice{
-		ImageName:    imageName,
-		Os:           os,
-		Architecture: arch,
-	}
-}
-
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
