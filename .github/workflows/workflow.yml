@@ -3,8 +3,6 @@ branch-rules: &branch-rules
     - main
     - 'release/**'
     - dev
-  branches-ignore:
-    - 'wf-ignore/**'
 
 on:
   push:
