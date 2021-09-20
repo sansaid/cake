@@ -10,13 +10,11 @@ on:
     - 'release/**'
     - dev
 
-defaults:
-  runs_on: ubuntu-latest
-  container:
-      image: golang:1.17-alpine
-
 jobs:
   caked:
+    runs_on: ubuntu-latest
+    container:
+      image: golang:1.17-alpine
     steps:
       - name: Install protobuf compilers
         run: |
@@ -34,6 +32,9 @@ jobs:
         run: |
           cd ./caked && echo "Shipping caked, somewhere over the rainbow.."
   cake-cli:
+    runs_on: ubuntu-latest
+    container:
+      image: golang:1.17-alpine
     steps:
       - name: Install protobuf compilers
         run: |
