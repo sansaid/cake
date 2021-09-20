@@ -12,7 +12,7 @@ on:
 
 jobs:
   caked:
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
     container:
       image: golang:1.17-alpine
     steps:
@@ -32,7 +32,7 @@ jobs:
         run: |
           cd ./caked && echo "Shipping caked, somewhere over the rainbow.."
   cake-cli:
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
     container:
       image: golang:1.17-alpine
     steps:
