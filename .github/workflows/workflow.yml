@@ -42,6 +42,7 @@ jobs:
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
+          go version
           cd ./caked/cmd && go test .
       - name: Build caked
         run: |
