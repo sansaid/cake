@@ -37,6 +37,7 @@ jobs:
       - name: Compile protobuf definitions
         run: |
           export PATH="$PATH:$(go env GOPATH)/bin:$HOME/.bin:$HOME/.bin/go"
+          ls .
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
