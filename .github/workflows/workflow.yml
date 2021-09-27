@@ -10,26 +10,29 @@ on:
     - 'release/**'
     - dev
 
+# TODO - NEXT: fix workflow
 jobs:
   caked:
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
         run: |
+          mkdir $HOME/.bin
+
           # Install golang
           wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
-          mkdir $HOME/.bin
           tar -C $HOME/.bin -xzf go1.17.1.linux-amd64.tar.gz
 
           # Install protoc
-          apt install -y protobuf-compiler
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.18.0/protoc-3.18.0-linux-x86_64.zip
+          unzip protoc-3.15.8-linux-x86_64.zip -d $HOME/.bin
 
           # Install protoc plugins
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
       - name: Compile protobuf definitions
         run: |
-          export PATH="$PATH:$(go env GOPATH)/bin:$HOME/.bin/go"
+          export PATH="$PATH:$(go env GOPATH)/bin:$HOME/.bin:$HOME/.bin/go"
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
