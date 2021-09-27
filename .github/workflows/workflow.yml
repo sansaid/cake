@@ -20,16 +20,16 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          mkdir $HOME/.bin
+          mkdir $HOME/{.bin,tmp}
 
           # Install golang
           wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
           tar -C $HOME/.bin -xzf go1.17.1.linux-amd64.tar.gz
 
-          # Install protoc
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
           curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PB_VER}/protoc-${PB_VER}-linux-x86_64.zip"
-          unzip protoc-${PB_VER}-linux-x86_64.zip -d $HOME/.bin
-          ls $HOME/.bin/bin
+          unzip protoc-${PB_VER}-linux-x86_64.zip -d $HOME/tmp
+          mv $HOME/tmp/bin/protoc $HOME/.bin/.
 
           # Install protoc plugins
           go get google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
