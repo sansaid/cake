@@ -44,10 +44,13 @@ jobs:
       - name: Test caked
         run: |
           alias go="$HOME/.bin/go"
-          
+
+          type go
           cd ./caked/cmd && go test .
       - name: Build caked
         run: |
+          alias go="$HOME/.bin/go"
+
           cd ./caked && go build . -o caked
       - name: Ship caked
         run: |
