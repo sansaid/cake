@@ -27,7 +27,6 @@ jobs:
           # Install golang
           wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
           tar -C $HOME/.bin -xzf go1.17.1.linux-amd64.tar.gz
-          type $HOME/.bin/go
           ls -l $HOME/.bin/go
 
           # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
