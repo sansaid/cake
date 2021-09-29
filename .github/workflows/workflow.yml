@@ -16,7 +16,6 @@ jobs:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
-      PATH:  $HOME/bin:$(go env GOPATH)/bin:$PATH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -25,12 +24,14 @@ jobs:
         run: |
           mkdir $HOME/{bin,tmp}
 
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          echo "PATH=$HOME/bin:$(go env GOPATH)/bin:$PATH" >> $GITHUB_ENV
+
           # Install golang
           wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
           tar -C $HOME/tmp -xzf go1.17.1.linux-amd64.tar.gz go/bin/go go/bin/gofmt
           mv $HOME/tmp/go/bin/go $HOME/bin/go
           mv $HOME/tmp/go/bin/gofmt $HOME/bin/gofmt
-          
 
           # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
           curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PB_VER}/protoc-${PB_VER}-linux-x86_64.zip"
