@@ -40,6 +40,7 @@ jobs:
         run: |
           export PATH="$HOME/.bin:$(go env GOPATH)/bin:$PATH"
           echo `go env GOPATH`
+          echo $PATH
           ls $HOME/.bin
           type go
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
