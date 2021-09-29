@@ -42,11 +42,12 @@ jobs:
       - name: Compile protobuf definitions
         run: |
           export PATH="$HOME/bin:$(go env GOPATH)/bin:$PATH"
-
+          type go
           protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
           type go
+          echo $PATH
           cd ./caked/cmd && go test .
       - name: Build caked
         run: |
