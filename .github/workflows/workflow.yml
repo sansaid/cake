@@ -29,7 +29,7 @@ jobs:
 
           # Install golang
           wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
-          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz go/bin/go go/bin/gofmt
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
 
           # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
           sudo apt install -y protobuf-compiler
