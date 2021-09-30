@@ -39,7 +39,7 @@ var stopCmd = &cobra.Command{
 		}
 
 		if err != nil {
-			log.Errorf("Could not stop slice for image %s: %w", image.Name, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Could not stop slice for image %s: %s", image.Name, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 
@@ -48,7 +48,7 @@ var stopCmd = &cobra.Command{
 		status, err := client.StopSlice(context.Background(), image)
 
 		if err != nil || status.Status != 0 { // TODO: Remove reliance on SliceStatus - rely only on error message
-			log.Errorf("Failed to run slice for image %s: %s - %w", image.Name, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Failed to run slice for image %s: %s - %s", image.Name, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 	},

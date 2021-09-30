@@ -36,7 +36,7 @@ var runCmd = &cobra.Command{
 		defer conn.Close()
 
 		if err != nil {
-			log.Errorf("Could not create slice for image %s: %w", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Could not create slice for image %s: %s", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 
@@ -46,7 +46,7 @@ var runCmd = &cobra.Command{
 		status, err := client.RunSlice(context.Background(), slice)
 
 		if err != nil || status.Status != 0 {
-			log.Errorf("Failed to run slice for image %s: %s - %w", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Failed to run slice for image %s: %s - %s", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 	},
