@@ -46,7 +46,7 @@ jobs:
           cd ./caked/cmd && go test .
       - name: Build caked
         run: |
-          cd ./caked && go build . -o caked
+          cd ./caked && go build -o caked .
       - name: Ship caked
         run: |
           cd ./caked && echo "Shipping caked, somewhere over the rainbow.."
