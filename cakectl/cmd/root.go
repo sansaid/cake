@@ -36,7 +36,7 @@ var sliceImage string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "cake",
+	Use:   "cakectl",
 	Short: "CLI tool to manage your cake server",
 	Long: `Cake is a utility for ensuring the most up to date image is running for a specific container. \
 	It does this automatically by polling your image's Docker Hub registry and pulling the latest image if \

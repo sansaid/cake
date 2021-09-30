@@ -18,52 +18,50 @@ package cmd
 import (
 	"context"
 
-	"github.com/sansaid/cake/cake/pb"
+	"github.com/sansaid/cake/cakectl/pb"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
 
-// stopCmd represents the stop command
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop running your image as a Cake slice",
-	Long:  `Stop running your image as a Cake slice. This will kill any containers running with this image.`,
+// runCmd represents the run command
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run your image as a Cake slice",
+	Long: `Run your image as a Cake slice. A Cake slice is simply a Docker container that is always kept up to \
+	date with an image in your Docker Hub registry. Only compatible with public Docker Hub registries at the moment.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var opts []grpc.DialOption
 		conn, err := grpc.Dial("localhost:6010", opts...) // TODO: these should be CLI arguments or config
 		defer conn.Close()
 
-		image := &pb.Image{
-			Name: sliceImage,
-		}
-
 		if err != nil {
-			log.Errorf("Could not stop slice for image %s: %s", image.Name, err) // TODO: decide if we need to also include stack in some of the error messages
+			log.Errorf("Could not create slice for image %s: %s", sliceImage, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 
 		client := pb.NewCakedClient(conn)
+		slice := NewSlice(sliceImage)
 
-		status, err := client.StopSlice(context.Background(), image)
+		status, err := client.RunSlice(context.Background(), slice)
 
-		if err != nil || status.Status != 0 { // TODO: Remove reliance on SliceStatus - rely only on error message
-			log.Errorf("Failed to run slice for image %s: %s - %s", image.Name, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
+		if err != nil || status.Status != 0 {
+			log.Errorf("Failed to run slice for image %s: %s - %s", sliceImage, status.Message, err) // TODO: decide if we need to also include stack in some of the error messages
 			return
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(stopCmd)
+	rootCmd.AddCommand(runCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// stopCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// stopCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

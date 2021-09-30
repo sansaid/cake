@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/sansaid/cake/cake/pb"
+	"github.com/sansaid/cake/cakectl/pb"
 )
 
 func NewSlice(imageName string) *pb.Slice {

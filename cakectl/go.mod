@@ -1,4 +1,4 @@
-module github.com/sansaid/cake/cake
+module github.com/sansaid/cake/cakectl
 
 go 1.17
 

@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/sansaid/cake/cake/cmd"
+import "github.com/sansaid/cake/cakectl/cmd"
 
 func main() {
 	cmd.Execute()
