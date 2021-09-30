@@ -10,7 +10,6 @@ on:
     - 'release/**'
     - dev
 
-# TODO - NEXT: fix workflow - for some reason, it's using go 1.15 and not go 1.17 that I'm installing. Does Ubuntu come with a default version of go?
 jobs:
   caked:
     env:
@@ -50,21 +49,41 @@ jobs:
       - name: Ship caked
         run: |
           cd ./caked && echo "Shipping caked, somewhere over the rainbow.."
-  cake-cli:
+  cakectl:
+    env:
+      PB_VER: 3.18.0
+      GO111MODULE: on
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.17-alpine
     steps:
-      - name: Install protobuf compilers
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golang
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+          # Install golang
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # $(go env GOPATH) needed so that the protoc plugins can be found
+          export PATH="/usr/local/go/bin:$(go env GOPATH)/bin:${PATH}"
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
       - name: Compile protobuf definitions
         run: |
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
+          sudo apt-get install -y protobuf-compiler
+
+          # Install protoc plugins
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+
           protoc --go-grpc_out=./cake/pb --go-grpc_opt=paths=source_relative --go_out=./cake/pb --go_opt=paths=source_relative caked.proto
-      - name: Build cake-cli
+      - name: Test cakectl
         run: |
-          cd ./cake && go build . -o cake
-      - name: Ship cake-cli
+          cd ./cake/cmd && go test .
+      - name: Build caked
         run: |
-          cd ./cake && echo "Shipping cake, somewhere over the rainbow..
+          cd ./cake && go build -o cakectl .
+      - name: Ship cakectl
+        run: |
+          cd ./cake && echo "Shipping cakectl, somewhere over the rainbow.."
