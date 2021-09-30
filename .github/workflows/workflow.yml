@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           mkdir $HOME/tmp
-          mkdir $HOME/.local/bin
+          mkdir -p $HOME/.local/bin
 
           # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
           echo "PATH=$(go env GOPATH)/bin:${PATH}" >> $GITHUB_ENV
