@@ -50,14 +50,14 @@ jobs:
           DIFF_FILTER: A
           PATTERNS: caked/CHANGELOG/*.md
           FORMAT: json
-      - name: Release and tag caked
+      - name: Create caked tag
         if: steps.git-diff.outputs.diff
         run: |
           export VERSION=$(jq '.[-1] | capture("caked/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
           export TAG_NAME="caked-${VERSION}"
 
-          git tag "${TAG_NAME}" ${{ github.sha }}
-          git push origin "${TAG_NAME}"
+          git tag ${TAG_NAME} ${{ github.sha }}
+          git push origin ${TAG_NAME}
   cakectl:
     env:
       PB_VER: 3.18.0
@@ -94,3 +94,18 @@ jobs:
       - name: Check cakectl can successfully build
         run: |
           cd ./cakectl && go build -o cakectl .
+      - name: Check if new changelog added to cakectl
+        uses: technote-space/get-diff-action@v4
+        id: git-diff
+        with:
+          DIFF_FILTER: A
+          PATTERNS: cakectl/CHANGELOG/*.md
+          FORMAT: json
+      - name: Create caked tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          export VERSION=$(jq '.[-1] | capture("cakectl/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export TAG_NAME="cakectl-${VERSION}"
+
+          git tag ${TAG_NAME} ${{ github.sha }}
+          git push origin ${TAG_NAME}
