@@ -14,25 +14,25 @@ aptitude install cake
 
 `cake` is minimal and only contains 2 components (which is currently maintained by 1 developer). So `cake` currently exists as a monorepo, with each component maintained under its own directory.
 
-* `cli` - this is where the `cake-cli` lives
+* `cakectl` - this is where the `cakectl` lives
 * `caked` - this is where the `cake` daemon lives
 
 Both components are required for `cake` to run.
 
 ## Components
 
-### cake-cli
+### cakectl
 
-`cake-cli` is simply a way to interface with the `cake` daemon and tell it what to do from a friendly CLI.
+`cakectl` is simply a way to interface with the `caked` daemon and tell it what to do from a friendly CLI.
 
 ### caked
 
-`caked` is a daemon that runs the core part of `cake`'s logic. `caked` and `cake-cli` talk to each other using gRPC.
+`caked` is a daemon that runs the core part of `cake`'s logic. `caked` and `cakectl` talk to each other using gRPC.
 
 ## Usage
 
 Deploy your container
 
 ```sh
-cake start --image "sansaid:debotbot/image"
+cakectl start --image "sansaid:debotbot/image"
 ```
