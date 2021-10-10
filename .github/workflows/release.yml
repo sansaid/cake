@@ -101,10 +101,10 @@ jobs:
           DIFF_FILTER: A
           PATTERNS: cakectl/CHANGELOG/*.md
           FORMAT: json
-      - name: Create caked tag
+      - name: Create cakectl tag
         if: steps.git-diff.outputs.diff
         run: |
-          export VERSION=$(jq '.[-1] | capture("cakectl/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export VERSION=$(jq -r '.[-1] | capture("cakectl/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
           export TAG_NAME="cakectl-${VERSION}"
 
           git tag ${TAG_NAME} ${{ github.sha }}
