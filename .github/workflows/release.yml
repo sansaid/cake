@@ -2,6 +2,9 @@ on:
   push: # Release only if a PR has been merged to main
     branches:
     - main
+  pull_request:
+    branches:
+    - main
 
 jobs:
   caked:
