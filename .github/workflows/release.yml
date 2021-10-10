@@ -42,7 +42,7 @@ jobs:
           cd ./${APP_NAME}/cmd && go test .
       - name: Build caked
         run: |
-          cd ./${APP_NAME} && go build -o caked .
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
       - name: Check if new changelog added to caked
         uses: technote-space/get-diff-action@v4
         id: git-diff

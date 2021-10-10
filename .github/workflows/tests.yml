@@ -15,6 +15,7 @@ jobs:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
+      APP_NAME: caked
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,17 +40,18 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
-          protoc --go-grpc_out=./caked/pb --go-grpc_opt=paths=source_relative --go_out=./caked/pb --go_opt=paths=source_relative caked.proto
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
       - name: Test caked
         run: |
-          cd ./caked/cmd && go test .
+          cd ./${APP_NAME}/cmd && go test .
       - name: Check caked can successfully build
         run: |
-          cd ./caked && go build -o caked .
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
   cakectl:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
+      APP_NAME: cakectl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -74,10 +76,10 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
-          protoc --go-grpc_out=./cakectl/pb --go-grpc_opt=paths=source_relative --go_out=./cakectl/pb --go_opt=paths=source_relative caked.proto
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
       - name: Test cakectl
         run: |
-          cd ./cakectl/cmd && go test .
+          cd ./${APP_NAME}/cmd && go test .
       - name: Check cakectl can successfully build
         run: |
-          cd ./cakectl && go build -o cakectl .
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
