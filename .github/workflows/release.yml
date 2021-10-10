@@ -11,6 +11,7 @@ jobs:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
+      APP_NAME: caked
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -44,18 +45,24 @@ jobs:
           cd ./caked && go build -o caked .
       - name: Check if new changelog added to caked
         uses: technote-space/get-diff-action@v4
+        id: git-diff
         with:
           DIFF_FILTER: A
           PATTERNS: caked/CHANGELOG/*.md
           FORMAT: json
       - name: Release and tag caked
+        if: steps.git-diff.outputs.diff
         run: |
-          echo ${GIT_DIFF}
-          # git tag caked- ${{ github.sha }}
+          export VERSION=$(jq '.[-1] | capture("caked/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name')
+          export TAG_NAME="caked-${VERSION}"
+
+          git tag "${TAG_NAME}" ${{ github.sha }}
+          git push origin "${TAG_NAME}"
   cakectl:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
+      APP_NAME: cakectl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
