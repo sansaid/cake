@@ -1,4 +1,3 @@
-# // TODO - NEXT: find way to source proto file during build - use Dockerfile for testing
 FROM golang:1.17 as builder
 
 WORKDIR /app
