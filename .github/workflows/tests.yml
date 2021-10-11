@@ -10,6 +10,7 @@ on:
     - 'release/**'
     - dev
 
+# TODO: change jobs to work with matrix
 jobs:
   caked:
     env:
