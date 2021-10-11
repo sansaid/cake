@@ -57,7 +57,7 @@ jobs:
       - name: Create caked tag
         if: steps.git-diff.outputs.diff
         run: |
-          export VERSION=$(jq --arg app_name ${APP_NAME} -r '.[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export VERSION=$(jq --arg app_name ${APP_NAME} -r 'sort | .[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
           export TAG_NAME="${APP_NAME}-${VERSION}" 
           
           if [[ $VERSION =~ $VERSION_FORMAT ]]; then
@@ -122,7 +122,7 @@ jobs:
       - name: Create cakectl tag
         if: steps.git-diff.outputs.diff
         run: |
-          export VERSION=$(jq --arg app_name ${APP_NAME} -r '.[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export VERSION=$(jq --arg app_name ${APP_NAME} -r 'sort | .[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
           export TAG_NAME="${APP_NAME}-${VERSION}"
 
           if [[ $VERSION =~ $VERSION_FORMAT ]]; then
