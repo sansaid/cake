@@ -6,12 +6,16 @@ on:
     branches:
     - main
 
+# TODO - NEXT: check that the version format is valid before creating a tag and releasing
+
+# TODO: change jobs to work with matrix
 jobs:
   caked:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
       APP_NAME: caked
+      VERSION_FORMAT: ^[0-9]+\.[0-9]+\.[0-9]+((-alpha|-beta)?(\.[0-9]+)?)$
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -54,18 +58,29 @@ jobs:
         if: steps.git-diff.outputs.diff
         run: |
           export VERSION=$(jq --arg app_name ${APP_NAME} -r '.[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
-          export TAG_NAME="${APP_NAME}-${VERSION}"  
+          export TAG_NAME="${APP_NAME}-${VERSION}" 
+          
+          if [[ $VERSION =~ $VERSION_FORMAT ]]; then
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
 
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-
-          git tag ${TAG_NAME} ${{ github.sha }}
-          git push origin ${TAG_NAME}
+            git tag ${TAG_NAME} ${{ github.sha }}
+            git push origin ${TAG_NAME}
+          else
+            echo "Invalid version format: ${VERSION}"
+            exit 1
+          fi
+      - name: Release caked tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          echo "Releasing"
+          # gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md"
   cakectl:
     env:
       PB_VER: 3.18.0
       GO111MODULE: on
       APP_NAME: cakectl
+      VERSION_FORMAT: \d+\.\d+\.\d+((?:-alpha|beta)?(?:\.\d+)?)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -110,5 +125,18 @@ jobs:
           export VERSION=$(jq --arg app_name ${APP_NAME} -r '.[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
           export TAG_NAME="${APP_NAME}-${VERSION}"
 
-          git tag ${TAG_NAME} ${{ github.sha }}
-          git push origin ${TAG_NAME}
+          if [[ $VERSION =~ $VERSION_FORMAT ]]; then
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+
+            git tag ${TAG_NAME} ${{ github.sha }}
+            git push origin ${TAG_NAME}
+          else
+            echo "Invalid version format: ${VERSION}"
+            exit 1
+          fi
+      - name: Release cakectl tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          echo "Releasing"
+          # gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md"
