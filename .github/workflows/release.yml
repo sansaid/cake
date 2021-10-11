@@ -48,7 +48,7 @@ jobs:
         run: |
           cd ./${APP_NAME} && go build -o ${APP_NAME} .
       - name: Check if new changelog added to caked
-        uses: technote-space/get-diff-action@v4
+        uses: technote-space/get-diff-action@v5.0.1
         id: git-diff
         with:
           DIFF_FILTER: A
@@ -80,7 +80,7 @@ jobs:
       PB_VER: 3.18.0
       GO111MODULE: on
       APP_NAME: cakectl
-      VERSION_FORMAT: \d+\.\d+\.\d+((?:-alpha|beta)?(?:\.\d+)?)
+      VERSION_FORMAT: ^[0-9]+\.[0-9]+\.[0-9]+((-alpha|-beta)?(\.[0-9]+)?)$
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -113,7 +113,7 @@ jobs:
         run: |
           cd ./${APP_NAME} && go build -o ${APP_NAME} .
       - name: Check if new changelog added to cakectl
-        uses: technote-space/get-diff-action@v4
+        uses: technote-space/get-diff-action@v5.0.1
         id: git-diff
         with:
           DIFF_FILTER: A
