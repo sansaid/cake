@@ -73,12 +73,12 @@ jobs:
         if: steps.git-diff.outputs.diff
         run: |
           gh auth login --with-token <<< "${{ secrets.CAKE_CI_GITHUB_TOKEN }}"
-          if [[ -z ${PRERELEASE} ]]; then
+          if [[ -n ${PRERELEASE} ]]; then
             echo "Creating prerelease draft..."
-            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --prerelease --draft ./${APP_NAME}
+            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --prerelease --draft ./${APP_NAME}/${APP_NAME}
           else
             echo "Creating release draft..."
-            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --draft ./${APP_NAME}
+            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --draft ./${APP_NAME}/${APP_NAME}
           fi
   cakectl:
     env:
