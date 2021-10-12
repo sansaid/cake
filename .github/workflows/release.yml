@@ -1,0 +1,147 @@
+on:
+  push: # Release only if a PR has been merged to main
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+# TODO: change jobs to work with matrix
+jobs:
+  caked:
+    env:
+      PB_VER: 3.18.0
+      GO111MODULE: on
+      APP_NAME: caked
+      VERSION_FORMAT: ^[0-9]+\.[0-9]+\.[0-9]+((-alpha|-beta)?(\.[0-9]+)?)$
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golang
+        run: |
+          # Install golang
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # $(go env GOPATH) needed so that the protoc plugins can be found
+          export PATH="/usr/local/go/bin:$(go env GOPATH)/bin:${PATH}"
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
+      - name: Compile protobuf definitions
+        run: |
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
+          sudo apt-get install -y protobuf-compiler
+
+          # Install protoc plugins
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
+      - name: Test caked
+        run: |
+          cd ./${APP_NAME}/cmd && go test .
+      - name: Build caked
+        run: |
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
+      - name: Check if new changelog added to caked
+        uses: technote-space/get-diff-action@v5.0.1
+        id: git-diff
+        with:
+          DIFF_FILTER: A
+          PATTERNS: caked/CHANGELOG/*.md
+          FORMAT: json
+      - name: Create caked tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          export VERSION=$(jq --arg app_name ${APP_NAME} -r 'sort | .[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export TAG_NAME="${APP_NAME}-${VERSION}" 
+          
+          if [[ $VERSION =~ $VERSION_FORMAT ]]; then
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+            echo "PRERELEASE=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+
+            git tag ${TAG_NAME} ${{ github.sha }}
+            git push origin ${TAG_NAME}
+          else
+            echo "Invalid version format: ${VERSION}"
+            exit 1
+          fi
+      - name: Release caked tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          gh auth login --with-token <<< "${{ secrets.CAKE_CI_GITHUB_TOKEN }}"
+          if [[ -n ${PRERELEASE} ]]; then
+            echo "Creating prerelease draft..."
+            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --prerelease --draft ./${APP_NAME}/${APP_NAME}
+          else
+            echo "Creating release draft..."
+            gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md" --draft ./${APP_NAME}/${APP_NAME}
+          fi
+  cakectl:
+    env:
+      PB_VER: 3.18.0
+      GO111MODULE: on
+      APP_NAME: cakectl
+      VERSION_FORMAT: ^[0-9]+\.[0-9]+\.[0-9]+((-alpha|-beta)?(\.[0-9]+)?)$
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golang
+        run: |
+          # Install golang
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # $(go env GOPATH) needed so that the protoc plugins can be found
+          export PATH="/usr/local/go/bin:$(go env GOPATH)/bin:${PATH}"
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
+      - name: Compile protobuf definitions
+        run: |
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
+          sudo apt-get install -y protobuf-compiler
+
+          # Install protoc plugins
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
+      - name: Test cakectl
+        run: |
+          cd ./${APP_NAME}/cmd && go test .
+      - name: Check cakectl can successfully build
+        run: |
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
+      - name: Check if new changelog added to cakectl
+        uses: technote-space/get-diff-action@v5.0.1
+        id: git-diff
+        with:
+          DIFF_FILTER: A
+          PATTERNS: cakectl/CHANGELOG/*.md
+          FORMAT: json
+      - name: Create cakectl tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          export VERSION=$(jq --arg app_name ${APP_NAME} -r 'sort | .[-1] | capture("'$app_name'/CHANGELOG/(?<tag_name>.*)\\.md") | .tag_name' <<<"${GIT_DIFF}")
+          export TAG_NAME="${APP_NAME}-${VERSION}"
+
+          if [[ $VERSION =~ $VERSION_FORMAT ]]; then
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+
+            git tag ${TAG_NAME} ${{ github.sha }}
+            git push origin ${TAG_NAME}
+          else
+            echo "Invalid version format: ${VERSION}"
+            exit 1
+          fi
+      - name: Release cakectl tag
+        if: steps.git-diff.outputs.diff
+        run: |
+          echo "Releasing"
+          # gh release create ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md"

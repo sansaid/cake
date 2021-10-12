@@ -1,0 +1,33 @@
+syntax = "proto3";
+package cake;
+
+option go_package = "./;pb";
+
+service Caked {
+    rpc RunSlice(Slice) returns (SliceStatus) {}
+    rpc StopSlice(Image) returns (SliceStatus) {}
+} 
+
+message Slice {
+    string image_name = 1;
+    string tag = 2;
+    string registry = 3;
+    string previous_digest = 4;
+    int64 previous_digest_time = 5;
+    string latest_digest = 6;
+    int64 latest_digest_time = 7;
+    int64 last_checked = 8;
+    int64 last_updated = 9;
+    string architecture = 10;
+    string os = 11;
+    repeated string container_ids = 12;
+}
+
+message SliceStatus {
+    int32 status = 1;
+    string message = 2;
+}
+
+message Image {
+    string name = 1;
+}

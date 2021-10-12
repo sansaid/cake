@@ -1,0 +1,86 @@
+on:
+  push:
+    branches:
+    - main
+    - 'release/**'
+    - dev
+  pull_request:
+    branches:
+    - main
+    - 'release/**'
+    - dev
+
+# TODO: change jobs to work with matrix
+jobs:
+  caked:
+    env:
+      PB_VER: 3.18.0
+      GO111MODULE: on
+      APP_NAME: caked
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golang
+        run: |
+          # Install golang
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # $(go env GOPATH) needed so that the protoc plugins can be found
+          export PATH="/usr/local/go/bin:$(go env GOPATH)/bin:${PATH}"
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
+      - name: Compile protobuf definitions
+        run: |
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
+          sudo apt-get install -y protobuf-compiler
+
+          # Install protoc plugins
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
+      - name: Test caked
+        run: |
+          cd ./${APP_NAME}/cmd && go test .
+      - name: Check caked can successfully build
+        run: |
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .
+  cakectl:
+    env:
+      PB_VER: 3.18.0
+      GO111MODULE: on
+      APP_NAME: cakectl
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golang
+        run: |
+          # Install golang
+          wget -nv https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+          rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz
+
+          # Setting multirun env vars: https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # $(go env GOPATH) needed so that the protoc plugins can be found
+          export PATH="/usr/local/go/bin:$(go env GOPATH)/bin:${PATH}"
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
+      - name: Compile protobuf definitions
+        run: |
+          # Install protoc - instructions in https://grpc.io/docs/protoc-installation/
+          sudo apt-get install -y protobuf-compiler
+
+          # Install protoc plugins
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+
+          protoc --go-grpc_out=./${APP_NAME}/pb --go-grpc_opt=paths=source_relative --go_out=./${APP_NAME}/pb --go_opt=paths=source_relative caked.proto
+      - name: Test cakectl
+        run: |
+          cd ./${APP_NAME}/cmd && go test .
+      - name: Check cakectl can successfully build
+        run: |
+          cd ./${APP_NAME} && go build -o ${APP_NAME} .

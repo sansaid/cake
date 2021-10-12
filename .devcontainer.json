@@ -1,0 +1,4 @@
+{
+    "build": { "dockerfile": "Dockerfile" },
+    "extensions": ["golang.go", "ms-azuretools.vscode-docker", "ms-vsliveshare.vsliveshare"]
+}
