@@ -72,7 +72,7 @@ jobs:
       - name: Release caked tag
         if: steps.git-diff.outputs.diff
         run: |
-          gh auth login --with-token ${{ secrets.CAKE_CI_GITHUB_TOKEN }}
+          gh auth login --with-token <<< "${{ secrets.CAKE_CI_GITHUB_TOKEN }}"
           if [[ -z ${PRERELEASE} ]]; then
             gh release create --prerelease --draft ${TAG_NAME} -F "${APP_NAME}/CHANGELOG/${VERSION}.md"
           else
